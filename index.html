@@ -3,300 +3,299 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AI文案工坊 V2 - 联网版</title>
+<title>AI文案工坊 V3.0 - 企业版</title>
 <style>
 :root {
   --bg: #0a0a0f; --card: #13131a; --primary: #6c5ce7;
   --accent: #00cec9; --text: #e8e8f0; --text-dim: #8888a0;
-  --border: #2a2a3a; --success: #00b894; --warning: #fdcb6e;
+  --border: #2a2a3a; --success: #00b894; --warning: #fdcb6e; --danger: #ff7675;
 }
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body {
-  font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
-  background: var(--bg); color: var(--text); min-height: 100vh;
-}
-.bg-gradient {
-  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-  background: radial-gradient(ellipse at 20% 20%, rgba(108,92,231,0.15) 0%, transparent 50%),
-              radial-gradient(ellipse at 80% 80%, rgba(0,206,201,0.1) 0%, transparent 50%);
-  z-index: -1;
-}
-header {
-  padding: 20px 30px; display: flex; justify-content: space-between; align-items: center;
-  border-bottom: 1px solid var(--border); backdrop-filter: blur(20px);
-  position: sticky; top: 0; z-index: 100; background: rgba(10,10,15,0.8);
-}
-.logo { display: flex; align-items: center; gap: 12px; font-size: 24px; font-weight: 700; }
-.logo-icon {
-  width: 40px; height: 40px; border-radius: 12px;
-  background: linear-gradient(135deg, var(--primary), var(--accent));
-  display: flex; align-items: center; justify-content: center; font-size: 20px;
-}
-.badge-online {
-  background: var(--success); color: #fff; padding: 4px 12px; border-radius: 20px;
-  font-size: 12px; font-weight: 600;
-}
-.container { max-width: 800px; margin: 0 auto; padding: 30px; }
-.card {
-  background: var(--card); border-radius: 16px; border: 1px solid var(--border);
-  padding: 24px; margin-bottom: 24px;
-}
-.card h2 { font-size: 20px; margin-bottom: 16px; display: flex; align-items: center; gap: 10px; }
-.form-group { margin-bottom: 16px; }
-.form-group label { display: block; font-size: 13px; color: var(--text-dim); margin-bottom: 6px; font-weight: 500; }
-.form-group input, .form-group textarea, .form-group select {
-  width: 100%; background: var(--bg); border: 1px solid var(--border);
-  border-radius: 10px; padding: 12px 14px; color: var(--text); font-size: 14px;
-  outline: none; transition: border-color 0.2s; font-family: inherit;
-}
-.form-group input:focus, .form-group textarea:focus, .form-group select:focus {
-  border-color: var(--primary); box-shadow: 0 0 0 3px rgba(108,92,231,0.3);
-}
-.form-group textarea { resize: vertical; min-height: 80px; }
-.btn {
-  width: 100%; padding: 14px; border: none; border-radius: 12px;
-  background: linear-gradient(135deg, var(--primary), var(--accent));
-  color: #fff; font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.3s;
-}
-.btn:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(108,92,231,0.3); }
-.btn.loading { opacity: 0.8; pointer-events: none; }
-.result {
-  background: var(--bg); border-radius: 12px; padding: 20px;
-  font-size: 15px; line-height: 1.8; white-space: pre-wrap;
-  border: 1px solid var(--border); display: none;
-}
-.result.show { display: block; animation: fadeIn 0.3s ease; }
-@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-.result-actions { display: flex; gap: 8px; margin-top: 12px; }
-.btn-sm {
-  background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
-  padding: 8px 16px; color: var(--text-dim); cursor: pointer; font-size: 13px;
-}
-.btn-sm:hover { border-color: var(--primary); color: var(--text); }
-.status-bar {
-  display: flex; gap: 16px; margin-bottom: 24px;
-}
-.status-item {
-  background: var(--card); border-radius: 12px; border: 1px solid var(--border);
-  padding: 16px; flex: 1; text-align: center;
-}
-.status-item .num { font-size: 24px; font-weight: 700; color: var(--accent); }
-.status-item .label { font-size: 12px; color: var(--text-dim); margin-top: 4px; }
-.toast {
-  position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
-  background: var(--success); color: #fff; padding: 12px 24px;
-  border-radius: 10px; font-size: 14px; z-index: 1000;
-  animation: slideUp 0.3s ease, fadeOut 0.3s ease 2s forwards;
-}
-@keyframes slideUp { from { transform: translate(-50%, 20px); opacity: 0; } }
-@keyframes fadeOut { to { opacity: 0; } }
-.api-config { display: flex; gap: 8px; align-items: center; margin-bottom: 16px; }
-.api-config select { flex: 1; }
+body { font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+.bg-gradient { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(ellipse at 20% 20%, rgba(108,92,231,0.15) 0%, transparent 50%), radial-gradient(ellipse at 80% 80%, rgba(0,206,201,0.1) 0%, transparent 50%); z-index: -1; }
+
+header { padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); background: rgba(10,10,15,0.9); backdrop-filter: blur(10px); position: sticky; top: 0; z-index: 50; }
+.logo { display: flex; align-items: center; gap: 10px; font-size: 20px; font-weight: 700; }
+.version-badge { background: var(--accent); color: #000; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 700; margin-left: 5px; }
+.user-panel { display: flex; align-items: center; gap: 15px; }
+.user-info { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--text-dim); }
+.user-info span { color: var(--text); font-weight: 600; }
+.limit-badge { background: var(--border); padding: 2px 8px; border-radius: 10px; font-size: 11px; }
+.limit-badge.low { background: var(--danger); color: #fff; }
+
+.btn { padding: 8px 16px; border-radius: 8px; border: none; cursor: pointer; font-weight: 600; font-size: 13px; transition: all 0.2s; }
+.btn-primary { background: var(--primary); color: #fff; }
+.btn-primary:hover { background: #5b4bd6; }
+.btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+.btn-outline:hover { border-color: var(--primary); color: var(--primary); }
+.btn-danger { background: var(--danger); color: #fff; }
+
+.container { max-width: 800px; margin: 30px auto; padding: 0 20px; }
+.card { background: var(--card); border-radius: 16px; border: 1px solid var(--border); padding: 24px; margin-bottom: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+.card h2 { font-size: 18px; margin-bottom: 20px; display: flex; align-items: center; gap: 8px; }
+
+.form-group { margin-bottom: 15px; }
+.form-group label { display: block; font-size: 12px; color: var(--text-dim); margin-bottom: 6px; }
+.form-group input, .form-group select, .form-group textarea { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px; color: var(--text); font-size: 14px; outline: none; }
+.form-group textarea { height: 100px; resize: vertical; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+
+.output-area { background: var(--bg); border-radius: 8px; padding: 15px; min-height: 150px; white-space: pre-wrap; line-height: 1.6; font-size: 14px; border: 1px solid var(--border); position: relative; }
+.loading { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; border-radius: 8px; font-weight: bold; color: var(--accent); }
+
+/* Modal */
+.modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 1000; }
+.modal-overlay.active { display: flex; }
+.modal { background: var(--card); padding: 30px; border-radius: 16px; width: 90%; max-width: 400px; border: 1px solid var(--border); }
+.modal h3 { font-size: 20px; margin-bottom: 20px; text-align: center; }
+.modal .error-msg { color: var(--danger); font-size: 12px; margin-top: 5px; display: none; }
+.modal-switch { text-align: center; margin-top: 15px; font-size: 13px; color: var(--text-dim); }
+.modal-switch a { color: var(--accent); cursor: pointer; text-decoration: underline; }
 </style>
 </head>
 <body>
+
 <div class="bg-gradient"></div>
+
 <header>
-  <div class="logo">
-    <div class="logo-icon">✍️</div>
-    <span>AI文案工坊 V2</span>
-    <span class="badge-online" id="statusBadge">🟢 在线</span>
-  </div>
-  <div style="font-size: 13px; color: var(--text-dim);" id="modelDisplay">Model: qwen-plus</div>
+    <div class="logo">
+        <div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,var(--primary),var(--accent));display:flex;align-items:center;justify-content:center">🔥</div>
+        AI文案工坊
+        <span class="version-badge">V3.0.0</span>
+    </div>
+    <div class="user-panel">
+        <div id="guest-panel">
+            <button class="btn btn-primary" onclick="showModal()">登录 / 注册</button>
+        </div>
+        <div id="user-panel" style="display: none;">
+            <div class="user-info">
+                <span id="username-display">User</span>
+                <span class="limit-badge" id="limit-display">--/--</span>
+            </div>
+            <button class="btn btn-outline" onclick="logout()">退出</button>
+        </div>
+    </div>
 </header>
 
 <div class="container">
-  <div class="status-bar">
-    <div class="status-item">
-      <div class="num" id="apiStatus">🟢</div>
-      <div class="label">API状态</div>
+    <div class="card">
+        <h2>✨ 智能文案生成</h2>
+        <div class="form-row">
+            <div class="form-group">
+                <label>文案场景</label>
+                <select id="scene">
+                    <option value="xiaohongshu">📕 小红书种草</option>
+                    <option value="gongzhonghao">📑 公众号文章</option>
+                    <option value="shipinhao">🎥 视频号脚本</option>
+                    <option value="pengyouquan">💬 朋友圈文案</option>
+                    <option value="dianping">⭐ 大众点评好评</option>
+                    <option value="zhihu">🎓 知乎回答</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>AI 模型</label>
+                <select id="model">
+                    <option value="deepseek">🚀 DeepSeek V3 (通用最强)</option>
+                    <option value="token-plan-qwen">🧠 Qwen3.6-Plus (逻辑推理)</option>
+                    <option value="token-plan-glm">⚡ GLM-5 (智谱)</option>
+                    <option value="token-plan-minimax">🎤 MiniMax-M2.5 (极速)</option>
+                </select>
+            </div>
+        </div>
+        <div class="form-group">
+            <label>主题 / 关键词</label>
+            <input type="text" id="topic" placeholder="例如：新品发布、年中大促、防脱发洗发水测评...">
+        </div>
+        <div class="form-group">
+            <label>补充要求 (可选)</label>
+            <textarea id="requirements" placeholder="例如：语气要活泼，多用 Emoji，强调性价比..."></textarea>
+        </div>
+        <button class="btn btn-primary" style="width: 100%; padding: 12px;" onclick="generate()" id="gen-btn">立即生成文案</button>
     </div>
-    <div class="status-item">
-      <div class="num" id="responseTime">-</div>
-      <div class="label">响应时间</div>
-    </div>
-    <div class="status-item">
-      <div class="num" id="totalGen">0</div>
-      <div class="label">累计生成</div>
-    </div>
-  </div>
 
-  <div class="card">
-    <h2>✨ AI文案生成</h2>
-    <div class="api-config">
-      <select id="modelSelect" onchange="switchModel()">
-        <option value="deepseek" selected>🔥 DeepSeek V3 (推荐)</option>
-        <option value="token-plan-qwen">🚀 Qwen3.6-Plus (增强)</option>
-        <option value="token-plan-glm">⚡ GLM-5 (智谱)</option>
-        <option value="token-plan-minimax">🎤 MiniMax-M2.5 (极速)</option>
-        <option value="qwen">通义千问 (qwen-plus)</option>
-        <option value="claude">Claude Sonnet 4</option>
-        <option value="openai">GPT-4o</option>
-        <option value="template">本地模板（离线）</option>
-      </select>
+    <div class="card">
+        <h2>📝 生成结果</h2>
+        <div class="output-area" id="output">
+            <div style="color: var(--text-dim); text-align: center; margin-top: 40px;">
+                文案将在这里显示...
+            </div>
+        </div>
     </div>
-    <div class="form-group">
-      <label>🎯 场景</label>
-      <select id="scene">
-        <option value="xiaohongshu">📕 小红书文案</option>
-        <option value="pengyouquan">💬 朋友圈文案</option>
-        <option value="dianshang">🛒 电商商品描述</option>
-        <option value="biaoti">🎯 爆款标题</option>
-        <option value="gongzhonghao">📰 公众号文章</option>
-        <option value="shipin">🎬 短视频脚本</option>
-        <option value="yingxiao">📢 营销话术</option>
-      </select>
-    </div>
-    <div class="form-group">
-      <label>🎨 风格</label>
-      <select id="style">
-        <option value="热情种草">🌟 热情种草</option>
-        <option value="专业测评">📊 专业测评</option>
-        <option value="故事分享">📖 故事分享</option>
-        <option value="干货教程">📚 干货教程</option>
-        <option value="幽默搞笑">😂 幽默搞笑</option>
-      </select>
-    </div>
-    <div class="form-group">
-      <label>📝 主题</label>
-      <input type="text" id="topic" placeholder="例如：夏日防晒、成都旅游攻略、减脂餐..." />
-    </div>
-    <button class="btn" id="genBtn" onclick="generate()">🤖 AI 生成文案</button>
-  </div>
+</div>
 
-  <div class="card">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-      <h2 style="margin-bottom: 0;">✅ 生成结果</h2>
-      <div style="display: flex; gap: 8px;">
-        <button class="btn-sm" onclick="copyResult()">📋 复制</button>
-        <button class="btn-sm" onclick="generate()">🔄 再生成</button>
-      </div>
+<!-- Auth Modal -->
+<div class="modal-overlay" id="auth-modal">
+    <div class="modal">
+        <h3 id="modal-title">用户登录</h3>
+        <div class="form-group">
+            <label>用户名</label>
+            <input type="text" id="auth-user" placeholder="请输入用户名">
+        </div>
+        <div class="form-group" id="email-group" style="display: none;">
+            <label>邮箱 (注册需要)</label>
+            <input type="email" id="auth-email" placeholder="user@example.com">
+        </div>
+        <div class="form-group">
+            <label>密码</label>
+            <input type="password" id="auth-pass" placeholder="请输入密码">
+        </div>
+        <p class="error-msg" id="auth-error"></p>
+        <button class="btn btn-primary" style="width: 100%;" onclick="handleAuth()" id="auth-btn">登录</button>
+        <div class="modal-switch">
+            <span id="switch-text">还没有账号？</span> <a onclick="toggleAuthMode()">注册</a>
+        </div>
+        <div class="modal-switch" style="margin-top: 10px;"><a onclick="closeModal()">取消</a></div>
     </div>
-    <div class="result" id="result"></div>
-  </div>
-
-  <div class="card" style="border-color: var(--warning); background: linear-gradient(135deg, var(--card) 0%, rgba(253,203,110,0.05) 100%);">
-    <h2>💎 开通会员，畅享无限</h2>
-    <p style="color: var(--text-dim); font-size: 14px; margin-bottom: 16px;">
-      免费版每天可生成 10 条文案。升级 PRO 解锁无限制生成、高级模型和优先队列！
-    </p>
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px;">
-      <div style="background: var(--bg); border-radius: 12px; padding: 16px; text-align: center; border: 1px solid var(--border);">
-        <div style="font-size: 24px; font-weight: 700; color: var(--accent);">¥9.9</div>
-        <div style="font-size: 12px; color: var(--text-dim);">/ 月 (PRO)</div>
-      </div>
-      <div style="background: var(--bg); border-radius: 12px; padding: 16px; text-align: center; border: 1px solid var(--border);">
-        <div style="font-size: 24px; font-weight: 700; color: var(--success);">¥79</div>
-        <div style="font-size: 12px; color: var(--text-dim);">/ 年 (立省 ¥40)</div>
-      </div>
-      <div style="background: var(--bg); border-radius: 12px; padding: 16px; text-align: center; border: 1px solid var(--border);">
-        <div style="font-size: 24px; font-weight: 700; color: var(--warning);">¥99</div>
-        <div style="font-size: 12px; color: var(--text-dim);">/ 月 (企业版)</div>
-      </div>
-    </div>
-    <button class="btn" style="margin-top: 16px; background: linear-gradient(135deg, var(--warning), #f0932b);">🚀 立即升级 PRO</button>
-  </div>
 </div>
 
 <script>
-const API_BASE = window.location.origin;
-let totalGen = parseInt(localStorage.getItem('totalGen') || '0');
+// State
+let isLoginMode = true;
+let userToken = localStorage.getItem('ai_token');
+let userInfo = null;
 
-// 检查API状态
-async function checkApi() {
-  try {
-    const resp = await fetch(`${API_BASE}/api/health`);
-    const data = await resp.json();
-    document.getElementById('apiStatus').textContent = '🟢';
-    document.getElementById('statusBadge').textContent = '🟢 在线';
-    document.getElementById('modelDisplay').textContent = `Model: ${data.model || 'qwen'}`;
-    document.getElementById('modelSelect').value = data.model || 'qwen';
-  } catch (e) {
-    document.getElementById('apiStatus').textContent = '🔴';
-    document.getElementById('statusBadge').textContent = '🔴 离线';
-    document.getElementById('modelDisplay').textContent = '使用本地模板';
-    document.getElementById('modelSelect').value = 'template';
-  }
+// Init
+window.onload = () => {
+    if (userToken) checkUserStatus();
+};
+
+// UI Functions
+function showModal() { document.getElementById('auth-modal').classList.add('active'); resetAuthForm(); }
+function closeModal() { document.getElementById('auth-modal').classList.remove('active'); }
+function toggleAuthMode() {
+    isLoginMode = !isLoginMode;
+    document.getElementById('modal-title').innerText = isLoginMode ? '用户登录' : '新用户注册';
+    document.getElementById('auth-btn').innerText = isLoginMode ? '登录' : '注册';
+    document.getElementById('email-group').style.display = isLoginMode ? 'none' : 'block';
+    document.getElementById('switch-text').innerText = isLoginMode ? '还没有账号？' : '已有账号？';
+    resetAuthForm();
+}
+function resetAuthForm() {
+    document.getElementById('auth-error').style.display = 'none';
+    document.querySelectorAll('.modal input').forEach(i => i.value = '');
 }
 
-async function generate() {
-  const topic = document.getElementById('topic').value.trim();
-  if (!topic) { alert('请输入主题'); return; }
+// Auth Logic
+async function handleAuth() {
+    const u = document.getElementById('auth-user').value;
+    const p = document.getElementById('auth-pass').value;
+    const e = document.getElementById('auth-email').value;
+    const errBox = document.getElementById('auth-error');
+    
+    if (!u || !p) { showError('请填写用户名和密码'); return; }
+    if (!isLoginMode && !e) { showError('注册需要填写邮箱'); return; }
 
-  const btn = document.getElementById('genBtn');
-  btn.classList.add('loading');
-  btn.textContent = '⏳ AI生成中...';
+    const endpoint = isLoginMode ? '/api/auth/login' : '/api/auth/register';
+    const body = isLoginMode ? { username: u, password: p } : { username: u, email: e, password: p };
 
-  const startTime = Date.now();
-  
-  try {
-    const model = document.getElementById('modelSelect').value;
-    const resp = await fetch(`${API_BASE}/api/generate`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        topic: topic,
-        scene: document.getElementById('scene').value,
-        style: document.getElementById('style').value,
-        model: model
-      })
-    });
+    try {
+        const res = await fetch(endpoint, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
+        const data = await res.json();
+        
+        if (data.success) {
+            userToken = data.token;
+            localStorage.setItem('ai_token', userToken);
+            closeModal();
+            checkUserStatus();
+        } else {
+            showError(data.error || '操作失败');
+        }
+    } catch (err) { showError('网络连接失败'); }
+}
 
-    const data = await resp.json();
-    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+async function checkUserStatus() {
+    try {
+        const res = await fetch('/api/auth/profile', { headers: {'Authorization': `Bearer ${userToken}`} });
+        if (res.ok) {
+            userInfo = await res.json();
+            updateUI(true);
+        } else {
+            logout();
+        }
+    } catch (e) { logout(); }
+}
 
-    if (data.success) {
-      document.getElementById('result').textContent = data.content;
-      document.getElementById('result').classList.add('show');
-      document.getElementById('responseTime').textContent = `${elapsed}s`;
-      totalGen++;
-      localStorage.setItem('totalGen', totalGen);
-      document.getElementById('totalGen').textContent = totalGen;
-      showToast('✅ 生成成功！');
-    } else {
-      document.getElementById('result').textContent = `❌ ${data.error || '生成失败'}`;
-      document.getElementById('result').classList.add('show');
+function logout() {
+    userToken = null;
+    userInfo = null;
+    localStorage.removeItem('ai_token');
+    updateUI(false);
+}
+
+function updateUI(loggedIn) {
+    document.getElementById('guest-panel').style.display = loggedIn ? 'none' : 'block';
+    document.getElementById('user-panel').style.display = loggedIn ? 'flex' : 'none';
+    if (loggedIn && userInfo) {
+        document.getElementById('username-display').innerText = userInfo.username;
+        updateLimitDisplay();
     }
-  } catch (e) {
-    // 降级到本地模板
-    document.getElementById('result').textContent = `[离线模式] ${topic}\n\n当前无法连接后端，使用本地模板生成...\n\n【${topic}】\n\n✨ 姐妹们！今天必须给你们安利${topic}！\n\n之前试了好多都不满意，直到遇到这个真的惊艳到了！\n\n✅ 性价比超高，闭眼入\n✅ 效果肉眼可见的好\n✅ 已经回购三次了\n\n#${topic.replace(/\s/g, '')} #好物推荐`;
-    document.getElementById('result').classList.add('show');
-    document.getElementById('apiStatus').textContent = '🟡';
-    document.getElementById('responseTime').textContent = '离线';
-  }
-
-  btn.classList.remove('loading');
-  btn.textContent = '🤖 AI 生成文案';
 }
 
-function copyResult() {
-  const text = document.getElementById('result').textContent;
-  navigator.clipboard.writeText(text).then(() => showToast('📋 已复制'));
+function updateLimitDisplay() {
+    if (!userInfo) return;
+    const used = userInfo.today_usage || 0;
+    const limit = userInfo.daily_limit || 10;
+    const el = document.getElementById('limit-display');
+    el.innerText = `${used}/${limit}`;
+    if (used >= limit) {
+        el.classList.add('low');
+        el.innerText = '额度已用完';
+    }
 }
 
-function switchModel() {
-  const model = document.getElementById('modelSelect').value;
-  const names = {
-    deepseek: 'deepseek-chat',
-    'token-plan-qwen': 'qwen3.6-plus',
-    'token-plan-glm': 'glm-5',
-    'token-plan-minimax': 'MiniMax-M2.5',
-    qwen: 'qwen-plus',
-    claude: 'claude-sonnet-4',
-    openai: 'gpt-4o',
-    template: 'local'
-  };
-  document.getElementById('modelDisplay').textContent = `Model: ${names[model]}`;
+// Core Generate Logic
+async function generate() {
+    const topic = document.getElementById('topic').value;
+    if (!topic) { alert('请输入主题'); return; }
+
+    const btn = document.getElementById('gen-btn');
+    const output = document.getElementById('output');
+    
+    btn.disabled = true;
+    btn.innerText = '正在生成中...';
+    output.innerHTML = '<div class="loading">AI 正在思考中...</div>';
+
+    try {
+        const headers = { 'Content-Type': 'application/json' };
+        if (userToken) headers['Authorization'] = `Bearer ${userToken}`;
+
+        const res = await fetch('/api/generate', {
+            method: 'POST',
+            headers: headers,
+            body: JSON.stringify({
+                topic: topic,
+                scene: document.getElementById('scene').value,
+                model: document.getElementById('model').value,
+                requirements: document.getElementById('requirements').value
+            })
+        });
+
+        const data = await res.json();
+        if (data.success) {
+            output.innerHTML = `<pre>${data.content}</pre>`;
+            // 更新额度信息 (如果有返回)
+            if (data.remaining_daily_limit !== undefined && userInfo) {
+                userInfo.today_usage = (userInfo.daily_limit || 10) - data.remaining_daily_limit;
+                updateLimitDisplay();
+            }
+        } else {
+            output.innerHTML = `<div style="color:var(--danger); padding:10px">生成失败: ${data.error || '未知错误'}</div>`;
+            if (res.status === 401) logout();
+        }
+    } catch (err) {
+        output.innerHTML = `<div style="color:var(--danger); padding:10px">请求超时，请检查网络</div>`;
+    } finally {
+        btn.disabled = false;
+        btn.innerText = '立即生成文案';
+    }
 }
 
-function showToast(msg) {
-  const t = document.createElement('div');
-  t.className = 'toast'; t.textContent = msg;
-  document.body.appendChild(t);
-  setTimeout(() => t.remove(), 2000);
+function showError(msg) {
+    const el = document.getElementById('auth-error');
+    el.innerText = msg;
+    el.style.display = 'block';
 }
-
-checkApi();
 </script>
+
 </body>
 </html>
