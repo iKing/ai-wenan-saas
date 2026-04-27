@@ -90,6 +90,7 @@ header { padding: 15px 30px; display: flex; justify-content: space-between; alig
                     <option value="pengyouquan">💬 朋友圈文案</option>
                     <option value="dianping">⭐ 大众点评好评</option>
                     <option value="zhihu">🎓 知乎回答</option>
+                    <option value="expert_access">💊 医药准入专家 (集采/医保)</option>
                 </select>
             </div>
             <div class="form-group">
@@ -207,7 +208,16 @@ async function checkUserStatus() {
     try {
         const res = await fetch('/api/auth/profile', { headers: {'Authorization': `Bearer ${userToken}`} });
         if (res.ok) {
-            userInfo = await res.json();
+            const data = await res.json();
+            // 修复：后端返回 { user: {...}, usage: {...}, subscription: {...} }
+            userInfo = {
+                username: data.user?.username || 'User',
+                role: data.user?.role || 'user',
+                today_usage: data.usage?.today_count || 0,
+                daily_limit: data.subscription?.daily_limit || 10,
+                plan_type: data.subscription?.plan_type || 'free',
+                remaining: data.usage?.remaining || 0
+            };
             updateUI(true);
         } else {
             logout();
@@ -273,10 +283,14 @@ async function generate() {
         const data = await res.json();
         if (data.success) {
             output.innerHTML = `<pre>${data.content}</pre>`;
-            // 更新额度信息 (如果有返回)
-            if (data.remaining_daily_limit !== undefined && userInfo) {
-                userInfo.today_usage = (userInfo.daily_limit || 10) - data.remaining_daily_limit;
-                updateLimitDisplay();
+            // 更新额度信息 (兼容后端返回的字段名)
+            if (userInfo) {
+                const remaining = data.remaining !== undefined ? data.remaining : data.remaining_daily_limit;
+                if (remaining !== undefined) {
+                    userInfo.today_usage = (userInfo.daily_limit || 10) - remaining;
+                    userInfo.remaining = remaining;
+                    updateLimitDisplay();
+                }
             }
         } else {
             output.innerHTML = `<div style="color:var(--danger); padding:10px">生成失败: ${data.error || '未知错误'}</div>`;

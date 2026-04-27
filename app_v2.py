@@ -218,7 +218,7 @@ def _template_mode(prompt):
     return "📝 [本地模板模式]\n\n当前服务正在运行，但模板模式仅作演示。\n建议配置 DeepSeek 或 Qwen API Key 以获得最佳效果。\n\n提示词摘要: " + prompt[:100]
 
 def call_token_plan(prompt, model_name="qwen3.6-plus"):
-    """Token Plan 调用 (阿里云 MaaS 兼容接口)"""
+    """Token Plan 调用 (阿里云 MaaS 兼容接口) - 支持 403 容灾切换"""
     try:
         api_key = Config.TOKEN_PLAN_API_KEY
         base_url = Config.TOKEN_PLAN_BASE_URL
@@ -238,6 +238,15 @@ def call_token_plan(prompt, model_name="qwen3.6-plus"):
         import requests
         url = f"{base_url}/chat/completions"
         response = requests.post(url, json=payload, headers=headers, timeout=120)
+        
+        # 403 容灾：如果主模型不可用（无权限/欠费），自动切换到 GLM-5
+        if response.status_code == 403:
+            if model_name != "glm-5":
+                print(f"⚠️ 模型 {model_name} 无权限 (403)，正在自动切换到 glm-5...")
+                return call_token_plan(prompt, model_name="glm-5")
+            else:
+                return f"⚠️ Token Plan 权限不足 (403)。请检查 Key 是否已购买该模型服务。"
+        
         response.raise_for_status()
         result = response.json()
         
@@ -346,6 +355,17 @@ def _call_openai_compatible(prompt, api_key, base_url, model_name):
         return f"[模板模式] 调用异常: {str(e)}"
 
 # ==================== 提示词模板 ====================
+# 导入医药准入专家模板
+import sys
+sys.path.append(os.path.join(os.path.dirname(__file__), 'prompt_templates'))
+try:
+    from expert_access_strategy import EXPERT_SYSTEM_PROMPT, USER_INPUT_TEMPLATE, SCENE_PROMPTS as EXPERT_SCENE_PROMPTS
+    print("✅ 已加载医药准入专家模板")
+except ImportError:
+    print("⚠️ 医药准入模板未找到")
+    EXPERT_SYSTEM_PROMPT = ""
+    USER_INPUT_TEMPLATE = ""
+
 PROMPTS = {
     'xiaohongshu': """请写一篇小红书风格的种草文案。
 要求：
@@ -408,13 +428,16 @@ PROMPTS = {
 
     'yingxiao': """请写一段高转化率的营销话术。
 要求：
-- 适合社群/私域发售
-- 包含预热、开售、逼单三个阶段
-- 有紧迫感和稀缺性
-- 引导立即行动
+- 直击用户痛点，给出解决方案
+- 语气真诚，强调限时/稀缺性
+- 包含明确的行动指令 (CTA)
+- 字数：150-300字
 
 主题：{topic}
-风格：{style}"""
+风格：{style}""" + ("" if not EXPERT_SYSTEM_PROMPT else "\n\n---\n\n[医药准入专家模式已激活]"),
+
+    # 新增：医药准入专家模式
+    'expert_access': EXPERT_SYSTEM_PROMPT + "\n\n【任务背景】\n{topic}\n\n【补充信息】\n{style}\n\n请开始分析：",
 }
 
 # ==================== API路由 ====================
