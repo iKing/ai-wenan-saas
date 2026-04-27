@@ -505,7 +505,7 @@ def generate():
         "word_count": len(content),
         "generation_time": round(elapsed, 2),
         "model": model,  # 返回实际使用的模型
-        "remaining": getattr(g, 'rate_limit_info', {}).get('remaining', -1),
+        "remaining": max(0, getattr(g, 'rate_limit_info', {}).get('remaining', -1) - 1) if getattr(g, 'rate_limit_info', {}).get('remaining', -1) > 0 else getattr(g, 'rate_limit_info', {}).get('remaining', -1),
     })
     return response
 
