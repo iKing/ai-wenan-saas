@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI文案工坊 V2 - 联网版</title>
+<style>
+:root {
+  --bg: #0a0a0f; --card: #13131a; --primary: #6c5ce7;
+  --accent: #00cec9; --text: #e8e8f0; --text-dim: #8888a0;
+  --border: #2a2a3a; --success: #00b894; --warning: #fdcb6e;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  background: var(--bg); color: var(--text); min-height: 100vh;
+}
+.bg-gradient {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: radial-gradient(ellipse at 20% 20%, rgba(108,92,231,0.15) 0%, transparent 50%),
+              radial-gradient(ellipse at 80% 80%, rgba(0,206,201,0.1) 0%, transparent 50%);
+  z-index: -1;
+}
+header {
+  padding: 20px 30px; display: flex; justify-content: space-between; align-items: center;
+  border-bottom: 1px solid var(--border); backdrop-filter: blur(20px);
+  position: sticky; top: 0; z-index: 100; background: rgba(10,10,15,0.8);
+}
+.logo { display: flex; align-items: center; gap: 12px; font-size: 24px; font-weight: 700; }
+.logo-icon {
+  width: 40px; height: 40px; border-radius: 12px;
+  background: linear-gradient(135deg, var(--primary), var(--accent));
+  display: flex; align-items: center; justify-content: center; font-size: 20px;
+}
+.badge-online {
+  background: var(--success); color: #fff; padding: 4px 12px; border-radius: 20px;
+  font-size: 12px; font-weight: 600;
+}
+.container { max-width: 800px; margin: 0 auto; padding: 30px; }
+.card {
+  background: var(--card); border-radius: 16px; border: 1px solid var(--border);
+  padding: 24px; margin-bottom: 24px;
+}
+.card h2 { font-size: 20px; margin-bottom: 16px; display: flex; align-items: center; gap: 10px; }
+.form-group { margin-bottom: 16px; }
+.form-group label { display: block; font-size: 13px; color: var(--text-dim); margin-bottom: 6px; font-weight: 500; }
+.form-group input, .form-group textarea, .form-group select {
+  width: 100%; background: var(--bg); border: 1px solid var(--border);
+  border-radius: 10px; padding: 12px 14px; color: var(--text); font-size: 14px;
+  outline: none; transition: border-color 0.2s; font-family: inherit;
+}
+.form-group input:focus, .form-group textarea:focus, .form-group select:focus {
+  border-color: var(--primary); box-shadow: 0 0 0 3px rgba(108,92,231,0.3);
+}
+.form-group textarea { resize: vertical; min-height: 80px; }
+.btn {
+  width: 100%; padding: 14px; border: none; border-radius: 12px;
+  background: linear-gradient(135deg, var(--primary), var(--accent));
+  color: #fff; font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.3s;
+}
+.btn:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(108,92,231,0.3); }
+.btn.loading { opacity: 0.8; pointer-events: none; }
+.result {
+  background: var(--bg); border-radius: 12px; padding: 20px;
+  font-size: 15px; line-height: 1.8; white-space: pre-wrap;
+  border: 1px solid var(--border); display: none;
+}
+.result.show { display: block; animation: fadeIn 0.3s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+.result-actions { display: flex; gap: 8px; margin-top: 12px; }
+.btn-sm {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+  padding: 8px 16px; color: var(--text-dim); cursor: pointer; font-size: 13px;
+}
+.btn-sm:hover { border-color: var(--primary); color: var(--text); }
+.status-bar {
+  display: flex; gap: 16px; margin-bottom: 24px;
+}
+.status-item {
+  background: var(--card); border-radius: 12px; border: 1px solid var(--border);
+  padding: 16px; flex: 1; text-align: center;
+}
+.status-item .num { font-size: 24px; font-weight: 700; color: var(--accent); }
+.status-item .label { font-size: 12px; color: var(--text-dim); margin-top: 4px; }
+.toast {
+  position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+  background: var(--success); color: #fff; padding: 12px 24px;
+  border-radius: 10px; font-size: 14px; z-index: 1000;
+  animation: slideUp 0.3s ease, fadeOut 0.3s ease 2s forwards;
+}
+@keyframes slideUp { from { transform: translate(-50%, 20px); opacity: 0; } }
+@keyframes fadeOut { to { opacity: 0; } }
+.api-config { display: flex; gap: 8px; align-items: center; margin-bottom: 16px; }
+.api-config select { flex: 1; }
+</style>
+</head>
+<body>
+<div class="bg-gradient"></div>
+<header>
+  <div class="logo">
+    <div class="logo-icon">✍️</div>
+    <span>AI文案工坊 V2</span>
+    <span class="badge-online" id="statusBadge">🟢 在线</span>
+  </div>
+  <div style="font-size: 13px; color: var(--text-dim);" id="modelDisplay">Model: qwen-plus</div>
+</header>
+
+<div class="container">
+  <div class="status-bar">
+    <div class="status-item">
+      <div class="num" id="apiStatus">🟢</div>
+      <div class="label">API状态</div>
+    </div>
+    <div class="status-item">
+      <div class="num" id="responseTime">-</div>
+      <div class="label">响应时间</div>
+    </div>
+    <div class="status-item">
+      <div class="num" id="totalGen">0</div>
+      <div class="label">累计生成</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>✨ AI文案生成</h2>
+    <div class="api-config">
+      <select id="modelSelect" onchange="switchModel()">
+        <option value="deepseek" selected>🔥 DeepSeek V3 (推荐)</option>
+        <option value="token-plan-qwen">🚀 Qwen3.6-Plus (增强)</option>
+        <option value="token-plan-glm">⚡ GLM-5 (智谱)</option>
+        <option value="token-plan-minimax">🎤 MiniMax-M2.5 (极速)</option>
+        <option value="qwen">通义千问 (qwen-plus)</option>
+        <option value="claude">Claude Sonnet 4</option>
+        <option value="openai">GPT-4o</option>
+        <option value="template">本地模板（离线）</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>🎯 场景</label>
+      <select id="scene">
+        <option value="xiaohongshu">📕 小红书文案</option>
+        <option value="pengyouquan">💬 朋友圈文案</option>
+        <option value="dianshang">🛒 电商商品描述</option>
+        <option value="biaoti">🎯 爆款标题</option>
+        <option value="gongzhonghao">📰 公众号文章</option>
+        <option value="shipin">🎬 短视频脚本</option>
+        <option value="yingxiao">📢 营销话术</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>🎨 风格</label>
+      <select id="style">
+        <option value="热情种草">🌟 热情种草</option>
+        <option value="专业测评">📊 专业测评</option>
+        <option value="故事分享">📖 故事分享</option>
+        <option value="干货教程">📚 干货教程</option>
+        <option value="幽默搞笑">😂 幽默搞笑</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>📝 主题</label>
+      <input type="text" id="topic" placeholder="例如：夏日防晒、成都旅游攻略、减脂餐..." />
+    </div>
+    <button class="btn" id="genBtn" onclick="generate()">🤖 AI 生成文案</button>
+  </div>
+
+  <div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+      <h2 style="margin-bottom: 0;">✅ 生成结果</h2>
+      <div style="display: flex; gap: 8px;">
+        <button class="btn-sm" onclick="copyResult()">📋 复制</button>
+        <button class="btn-sm" onclick="generate()">🔄 再生成</button>
+      </div>
+    </div>
+    <div class="result" id="result"></div>
+  </div>
+
+  <div class="card" style="border-color: var(--warning); background: linear-gradient(135deg, var(--card) 0%, rgba(253,203,110,0.05) 100%);">
+    <h2>💎 开通会员，畅享无限</h2>
+    <p style="color: var(--text-dim); font-size: 14px; margin-bottom: 16px;">
+      免费版每天可生成 10 条文案。升级 PRO 解锁无限制生成、高级模型和优先队列！
+    </p>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px;">
+      <div style="background: var(--bg); border-radius: 12px; padding: 16px; text-align: center; border: 1px solid var(--border);">
+        <div style="font-size: 24px; font-weight: 700; color: var(--accent);">¥9.9</div>
+        <div style="font-size: 12px; color: var(--text-dim);">/ 月 (PRO)</div>
+      </div>
+      <div style="background: var(--bg); border-radius: 12px; padding: 16px; text-align: center; border: 1px solid var(--border);">
+        <div style="font-size: 24px; font-weight: 700; color: var(--success);">¥79</div>
+        <div style="font-size: 12px; color: var(--text-dim);">/ 年 (立省 ¥40)</div>
+      </div>
+      <div style="background: var(--bg); border-radius: 12px; padding: 16px; text-align: center; border: 1px solid var(--border);">
+        <div style="font-size: 24px; font-weight: 700; color: var(--warning);">¥99</div>
+        <div style="font-size: 12px; color: var(--text-dim);">/ 月 (企业版)</div>
+      </div>
+    </div>
+    <button class="btn" style="margin-top: 16px; background: linear-gradient(135deg, var(--warning), #f0932b);">🚀 立即升级 PRO</button>
+  </div>
+</div>
+
+<script>
+const API_BASE = window.location.origin;
+let totalGen = parseInt(localStorage.getItem('totalGen') || '0');
+
+// 检查API状态
+async function checkApi() {
+  try {
+    const resp = await fetch(`${API_BASE}/api/health`);
+    const data = await resp.json();
+    document.getElementById('apiStatus').textContent = '🟢';
+    document.getElementById('statusBadge').textContent = '🟢 在线';
+    document.getElementById('modelDisplay').textContent = `Model: ${data.model || 'qwen'}`;
+    document.getElementById('modelSelect').value = data.model || 'qwen';
+  } catch (e) {
+    document.getElementById('apiStatus').textContent = '🔴';
+    document.getElementById('statusBadge').textContent = '🔴 离线';
+    document.getElementById('modelDisplay').textContent = '使用本地模板';
+    document.getElementById('modelSelect').value = 'template';
+  }
+}
+
+async function generate() {
+  const topic = document.getElementById('topic').value.trim();
+  if (!topic) { alert('请输入主题'); return; }
+
+  const btn = document.getElementById('genBtn');
+  btn.classList.add('loading');
+  btn.textContent = '⏳ AI生成中...';
+
+  const startTime = Date.now();
+  
+  try {
+    const model = document.getElementById('modelSelect').value;
+    const resp = await fetch(`${API_BASE}/api/generate`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        topic: topic,
+        scene: document.getElementById('scene').value,
+        style: document.getElementById('style').value,
+        model: model
+      })
+    });
+
+    const data = await resp.json();
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+
+    if (data.success) {
+      document.getElementById('result').textContent = data.content;
+      document.getElementById('result').classList.add('show');
+      document.getElementById('responseTime').textContent = `${elapsed}s`;
+      totalGen++;
+      localStorage.setItem('totalGen', totalGen);
+      document.getElementById('totalGen').textContent = totalGen;
+      showToast('✅ 生成成功！');
+    } else {
+      document.getElementById('result').textContent = `❌ ${data.error || '生成失败'}`;
+      document.getElementById('result').classList.add('show');
+    }
+  } catch (e) {
+    // 降级到本地模板
+    document.getElementById('result').textContent = `[离线模式] ${topic}\n\n当前无法连接后端，使用本地模板生成...\n\n【${topic}】\n\n✨ 姐妹们！今天必须给你们安利${topic}！\n\n之前试了好多都不满意，直到遇到这个真的惊艳到了！\n\n✅ 性价比超高，闭眼入\n✅ 效果肉眼可见的好\n✅ 已经回购三次了\n\n#${topic.replace(/\s/g, '')} #好物推荐`;
+    document.getElementById('result').classList.add('show');
+    document.getElementById('apiStatus').textContent = '🟡';
+    document.getElementById('responseTime').textContent = '离线';
+  }
+
+  btn.classList.remove('loading');
+  btn.textContent = '🤖 AI 生成文案';
+}
+
+function copyResult() {
+  const text = document.getElementById('result').textContent;
+  navigator.clipboard.writeText(text).then(() => showToast('📋 已复制'));
+}
+
+function switchModel() {
+  const model = document.getElementById('modelSelect').value;
+  const names = {
+    deepseek: 'deepseek-chat',
+    'token-plan-qwen': 'qwen3.6-plus',
+    'token-plan-glm': 'glm-5',
+    'token-plan-minimax': 'MiniMax-M2.5',
+    qwen: 'qwen-plus',
+    claude: 'claude-sonnet-4',
+    openai: 'gpt-4o',
+    template: 'local'
+  };
+  document.getElementById('modelDisplay').textContent = `Model: ${names[model]}`;
+}
+
+function showToast(msg) {
+  const t = document.createElement('div');
+  t.className = 'toast'; t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2000);
+}
+
+checkApi();
+</script>
+</body>
+</html>

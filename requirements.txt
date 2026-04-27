@@ -1,0 +1,6 @@
+flask>=3.0
+requests>=2.31
+gunicorn>=21.2
+dashscope>=1.14
+openai>=1.10
+anthropic>=0.18

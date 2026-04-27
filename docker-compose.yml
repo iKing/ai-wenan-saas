@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      - AI_API_KEY=${AI_API_KEY}
+      - DATABASE_URL=sqlite:///data/wenyan.db
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
