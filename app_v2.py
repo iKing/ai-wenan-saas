@@ -556,6 +556,39 @@ def stats():
         "model": Config.AI_MODEL
     })
 
+# ==================== 支付模块 ====================
+from payment import create_payment, handle_payment_callback
+
+@app.route('/api/payment/wechat', methods=['POST'])
+def wechat_pay():
+    data = request.json
+    if not data:
+        return jsonify({"error": "Missing data"}), 400
+    result = create_payment(
+        user_id=data.get('user_id', 0), 
+        product=data.get('product', 'pro_monthly'), 
+        method='wechat'
+    )
+    return jsonify({"success": True, "data": result})
+
+@app.route('/api/payment/alipay', methods=['POST'])
+def alipay_pay():
+    data = request.json
+    if not data:
+        return jsonify({"error": "Missing data"}), 400
+    result = create_payment(
+        user_id=data.get('user_id', 0), 
+        product=data.get('product', 'pro_monthly'), 
+        method='alipay'
+    )
+    return jsonify({"success": True, "data": result})
+
+@app.route('/api/payment/notify', methods=['POST'])
+def payment_notify():
+    data = request.json
+    success = handle_payment_callback(data)
+    return jsonify({"success": success})
+
 # ==================== 启动 ====================
 if __name__ == '__main__':
     init_db()
