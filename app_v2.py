@@ -232,7 +232,9 @@ def call_token_plan(prompt, model_name="qwen3.6-plus"):
         
         payload = {
             "model": model_name,
-            "messages": [{"role": "user", "content": prompt}]
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": 4096,
+            "temperature": 0.8
         }
         
         import requests
@@ -271,7 +273,9 @@ def call_qwen(prompt):
         
         payload = {
             "model": "qwen-plus",
-            "messages": [{"role": "user", "content": prompt}]
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": 4096,
+            "temperature": 0.8
         }
         
         import requests
@@ -322,7 +326,9 @@ def call_deepseek(prompt):
         
         payload = {
             "model": "deepseek-chat",
-            "messages": [{"role": "user", "content": prompt}]
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": 4096,
+            "temperature": 0.8
         }
         
         import requests
