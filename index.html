@@ -40,7 +40,16 @@ header { padding: 15px 30px; display: flex; justify-content: space-between; alig
 .form-group textarea { height: 100px; resize: vertical; }
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
 
-.output-area { background: var(--bg); border-radius: 8px; padding: 15px; min-height: 150px; white-space: pre-wrap; line-height: 1.6; font-size: 14px; border: 1px solid var(--border); position: relative; }
+.output-area { background: var(--bg); border-radius: 8px; padding: 15px; min-height: 150px; max-height: 60vh; overflow-y: auto; 
+    white-space: pre-wrap; word-wrap: break-word; overflow-wrap: anywhere; line-height: 1.6; font-size: 14px; 
+    border: 1px solid var(--border); position: relative; width: 100%; box-sizing: border-box; overflow-x: hidden; }
+.output-area pre { margin: 0; white-space: pre-wrap !important; word-break: break-all !important; overflow-wrap: break-word !important; width: 100%; box-sizing: border-box; }
+
+/* Result Header & Actions */
+.result-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; font-size: 12px; color: var(--text-dim); flex-wrap: wrap; gap: 8px; }
+.result-header span { margin-right: 10px; }
+.result-header .tag { background: var(--border); padding: 2px 6px; border-radius: 4px; color: var(--accent); }
+.action-bar { display: flex; gap: 8px; margin-top: 10px; justify-content: flex-end; }
 .loading { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; border-radius: 8px; font-weight: bold; color: var(--accent); }
 
 /* Modal */
@@ -115,11 +124,25 @@ header { padding: 15px 30px; display: flex; justify-content: space-between; alig
     </div>
 
     <div class="card">
-        <h2>📝 生成结果</h2>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <h2 style="margin: 0;">📝 生成结果</h2>
+            <!-- V2 功能回归：元数据 (耗时、模型) -->
+            <div id="result-meta" style="font-size: 12px; color: var(--text-dim); display: none;">
+                <span id="meta-time" style="margin-right: 8px;">⏱️ 0s</span>
+                <span id="meta-model">🤖 -</span>
+            </div>
+        </div>
+        
         <div class="output-area" id="output">
             <div style="color: var(--text-dim); text-align: center; margin-top: 40px;">
                 文案将在这里显示...
             </div>
+        </div>
+
+        <!-- V2 功能回归：操作栏 -->
+        <div id="result-actions" style="display: none; margin-top: 10px; display: flex; gap: 10px; justify-content: flex-end;">
+            <button class="btn btn-outline" onclick="copyContent()" id="copy-btn">📋 一键复制</button>
+            <button class="btn btn-primary" onclick="regenerate()" id="regen-btn">🔄 重新生成</button>
         </div>
     </div>
 </div>
@@ -273,6 +296,19 @@ function updateLimitDisplay() {
 
 // Core Generate Logic
 async function generate() {
+    // 1. 未登录拦截
+    if (!userToken) {
+        alert('请先登录后再生成，未登录无法使用！');
+        showModal();
+        return;
+    }
+
+    // 2. [新增] 额度用完拦截 - 绝不浪费 Token
+    if (userInfo && userInfo.remaining <= 0) {
+        alert(`今日额度已用完 (0/${userInfo.daily_limit})。请升级套餐获取更多额度，或明日再试！`);
+        return;
+    }
+
     const topic = document.getElementById('topic').value;
     if (!topic) { alert('请输入主题'); return; }
 
@@ -282,6 +318,13 @@ async function generate() {
     btn.disabled = true;
     btn.innerText = '正在生成中...';
     output.innerHTML = '<div class="loading">AI 正在思考中...</div>';
+
+    // 隐藏元数据和操作栏
+    document.getElementById('result-meta').style.display = 'none';
+    document.getElementById('result-actions').style.display = 'none';
+
+    // V2 功能回归：记录开始时间
+    const startTime = Date.now();
 
     try {
         const headers = { 'Content-Type': 'application/json' };
@@ -299,22 +342,47 @@ async function generate() {
         });
 
         const data = await res.json();
+        
         if (data.success) {
-            output.innerHTML = `<pre>${data.content}</pre>`;
-            // 生成成功后，强制刷新 Profile 获取最新额度
-            if (userToken) {
-                await refreshProfile();
-            }
+            // 计算耗时
+            const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+            
+            // V2 功能回归：更新显示元数据和操作栏
+            document.getElementById('meta-time').innerHTML = `⏱️ ${duration}s`;
+            document.getElementById('meta-model').innerHTML = `🤖 ${data.model || '-'}`;
+            document.getElementById('result-meta').style.display = 'flex';
+            document.getElementById('result-actions').style.display = 'flex';
+
+            // 渲染内容：使用 textContent 替代 pre 标签，避免不换行
+            output.innerHTML = '';
+            output.textContent = data.content;
+            
+            if (userToken) await refreshProfile();
         } else {
-            output.innerHTML = `<div style="color:var(--danger); padding:10px">生成失败: ${data.error || '未知错误'}</div>`;
-            if (res.status === 401) logout();
+            output.textContent = data.error;
         }
-    } catch (err) {
-        output.innerHTML = `<div style="color:var(--danger); padding:10px">请求超时，请检查网络</div>`;
+    } catch (e) {
+        output.textContent = '生成失败，请检查网络';
     } finally {
         btn.disabled = false;
-        btn.innerText = '立即生成文案';
+        btn.innerText = '生成文案';
     }
+}
+
+// V2 功能回归：一键复制
+function copyContent() {
+    const content = document.getElementById('output').textContent;
+    navigator.clipboard.writeText(content).then(() => {
+        const btn = document.getElementById('copy-btn');
+        const orig = btn.innerHTML;
+        btn.innerHTML = '✅ 已复制';
+        setTimeout(() => btn.innerHTML = orig, 2000);
+    });
+}
+
+// V2 功能回归：重新生成
+function regenerate() {
+    document.getElementById('gen-btn').click();
 }
 
 function showError(msg) {
