@@ -583,12 +583,11 @@ def get_profile():
         LIMIT 1
     ''', (user_id,)).fetchone()
 
-    # 获取今日使用次数
-    today = datetime.now().strftime('%Y-%m-%d')
+    # 获取今日使用次数（使用 SQLite 的 date('now') 保持与时区一致）
     usage = conn.execute('''
         SELECT COUNT(*) as count FROM usage_logs
-        WHERE user_id = ? AND date(timestamp) = ?
-    ''', (user_id, today)).fetchone()
+        WHERE user_id = ? AND date(timestamp) = date('now')
+    ''', (user_id,)).fetchone()
 
     today_count = usage['count'] if usage else 0
 
