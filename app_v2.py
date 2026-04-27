@@ -14,7 +14,7 @@ from datetime import datetime, timedelta
 from functools import wraps
 
 # ==================== 导入认证模块 ====================
-from auth import init_auth, login_required
+from auth import init_auth, login_required, admin_required
 
 # ==================== 导入使用量限制模块 ====================
 from rate_limiter import (
@@ -617,6 +617,79 @@ def payment_notify():
     data = request.json
     success = handle_payment_callback(data)
     return jsonify({"success": success})
+
+# ==================== 管理后台 API ====================
+
+@app.route('/api/admin/stats', methods=['GET'])
+@admin_required
+def admin_stats():
+    """管理员：获取系统统计"""
+    conn = get_db()
+    try:
+        total_users = conn.execute("SELECT COUNT(*) as c FROM users").fetchone()['c']
+        total_gens = conn.execute("SELECT COUNT(*) as c FROM usage_logs").fetchone()['c']
+        # 模拟收入 (实际应从 orders 表查询)
+        total_revenue = 0 
+        
+        return jsonify({
+            "success": True,
+            "total_users": total_users,
+            "total_generations": total_gens,
+            "total_revenue": total_revenue
+        })
+    finally:
+        conn.close()
+
+@app.route('/api/admin/users', methods=['GET'])
+@admin_required
+def admin_users():
+    """管理员：获取用户列表"""
+    conn = get_db()
+    try:
+        users = conn.execute('''
+            SELECT u.id, u.username, u.email, u.role, u.created_at, 
+                   s.plan_type, s.daily_limit
+            FROM users u
+            LEFT JOIN subscriptions s ON u.id = s.user_id
+            ORDER BY u.created_at DESC
+            LIMIT 100
+        ''').fetchall()
+        
+        result = []
+        for u in users:
+            result.append({
+                "id": u['id'],
+                "username": u['username'],
+                "email": u['email'],
+                "role": u['role'],
+                "plan_type": u['plan_type'],
+                "daily_limit": u['daily_limit'],
+                "created_at": u['created_at']
+            })
+        
+        return jsonify({"success": True, "users": result})
+    finally:
+        conn.close()
+
+@app.route('/api/admin/users/<int:user_id>/quota', methods=['POST'])
+@admin_required
+def admin_set_quota(user_id):
+    """管理员：手动调整用户额度 (通过修改 subscription)"""
+    data = request.json
+    new_limit = data.get('daily_limit')
+    if new_limit is None:
+        return jsonify({"error": "Missing daily_limit"}), 400
+    
+    conn = get_db()
+    try:
+        conn.execute(
+            "UPDATE subscriptions SET daily_limit = ? WHERE user_id = ?",
+            (new_limit, user_id)
+        )
+        conn.commit()
+        return jsonify({"success": True, "message": f"User {user_id} quota set to {new_limit}"})
+    finally:
+        conn.close()
 
 # ==================== 启动 ====================
 if __name__ == '__main__':
