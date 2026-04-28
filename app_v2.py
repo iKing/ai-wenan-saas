@@ -452,6 +452,11 @@ def index():
     """前端页面"""
     return send_from_directory(os.path.dirname(os.path.abspath(__file__)), 'index.html')
 
+@app.route('/admin')
+def admin_page():
+    """管理后台页面"""
+    return send_from_directory(os.path.dirname(os.path.abspath(__file__)), 'admin.html')
+
 @app.route('/api/health')
 def health():
     return jsonify({

@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>管理后台 - AI文案工坊 V3.1</title>
+<style>
+    :root {
+        --bg: #0f172a; --card: #1e293b; --primary: #3b82f6; --text: #f8fafc;
+        --text-dim: #94a3b8; --border: #334155; --success: #22c55e; --danger: #ef4444;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+    
+    .header { background: var(--card); padding: 1rem 2rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+    .header h1 { font-size: 1.25rem; font-weight: 700; }
+    .user-badge { background: var(--primary); padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; }
+    
+    .container { max-width: 1200px; margin: 2rem auto; padding: 0 1rem; }
+    
+    /* Stats Grid */
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; }
+    .stat-card { background: var(--card); padding: 1.5rem; border-radius: 12px; border: 1px solid var(--border); }
+    .stat-label { color: var(--text-dim); font-size: 0.875rem; margin-bottom: 0.5rem; }
+    .stat-value { font-size: 2rem; font-weight: 700; color: var(--primary); }
+    
+    /* Table */
+    .panel { background: var(--card); border-radius: 12px; border: 1px solid var(--border); overflow: hidden; }
+    .panel-header { padding: 1rem 1.5rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+    .panel-header h2 { font-size: 1.1rem; }
+    
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 1rem 1.5rem; text-align: left; border-bottom: 1px solid var(--border); }
+    th { color: var(--text-dim); font-weight: 600; font-size: 0.85rem; text-transform: uppercase; }
+    tr:hover { background: rgba(255,255,255,0.02); }
+    
+    .tag { padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; }
+    .tag-admin { background: #f59e0b33; color: #fbbf24; }
+    .tag-user { background: #3b82f633; color: #60a5fa; }
+    .tag-free { background: #64748833; color: #94a3b8; }
+    .tag-pro { background: #22c55e33; color: #4ade80; }
+
+    .btn { padding: 6px 12px; border-radius: 6px; border: none; cursor: pointer; font-size: 0.8rem; font-weight: 600; transition: 0.2s; }
+    .btn-sm { padding: 4px 8px; font-size: 0.75rem; }
+    .btn-primary { background: var(--primary); color: white; }
+    .btn-danger { background: var(--danger); color: white; }
+    
+    /* Modal */
+    .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: none; align-items: center; justify-content: center; z-index: 100; }
+    .modal { background: var(--card); padding: 2rem; border-radius: 12px; width: 90%; max-width: 400px; border: 1px solid var(--border); }
+    .input-group { margin-bottom: 1rem; }
+    .input-group label { display: block; margin-bottom: 0.5rem; color: var(--text-dim); font-size: 0.9rem; }
+    .input-group input { width: 100%; background: var(--bg); border: 1px solid var(--border); padding: 0.75rem; border-radius: 6px; color: white; }
+
+    .loading { text-align: center; padding: 2rem; color: var(--text-dim); }
+</style>
+</head>
+<body>
+
+<div class="header">
+    <h1>🛡️ 管理后台</h1>
+    <div class="user-badge" id="admin-name">Admin</div>
+</div>
+
+<div class="container">
+    <!-- Stats -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-label">总用户数</div>
+            <div class="stat-value" id="stat-users">--</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">总生成次数</div>
+            <div class="stat-value" id="stat-gens">--</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">总收入 (元)</div>
+            <div class="stat-value" id="stat-revenue">--</div>
+        </div>
+    </div>
+
+    <!-- User List -->
+    <div class="panel">
+        <div class="panel-header">
+            <h2>👥 用户管理</h2>
+            <button class="btn btn-primary" onclick="loadUsers()">刷新列表</button>
+        </div>
+        <div style="overflow-x: auto;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>用户名</th>
+                        <th>邮箱</th>
+                        <th>角色</th>
+                        <th>套餐</th>
+                        <th>日限额</th>
+                        <th>注册时间</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="user-list">
+                    <tr><td colspan="8" class="loading">加载中...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Quota Modal -->
+<div class="modal-overlay" id="quota-modal">
+    <div class="modal">
+        <h3 style="margin-bottom: 1.5rem;">调整用户额度</h3>
+        <div class="input-group">
+            <label>目标用户: <span id="modal-username" style="color: var(--primary)"></span></label>
+            <input type="hidden" id="modal-user-id">
+        </div>
+        <div class="input-group">
+            <label>新日限额</label>
+            <input type="number" id="new-quota" placeholder="例如: 50, 100">
+        </div>
+        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+            <button class="btn" onclick="closeModal()">取消</button>
+            <button class="btn btn-primary" onclick="saveQuota()">保存</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const API = '/api/admin';
+    let token = localStorage.getItem('ai_admin_token');
+
+    async function fetchAPI(url, method = 'GET', body = null) {
+        const opts = {
+            method,
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
+        };
+        if (body) opts.body = JSON.stringify(body);
+        
+        const res = await fetch(url, opts);
+        if (res.status === 401) {
+            alert('登录已过期，请重新登录');
+            loginAdmin();
+            return null;
+        }
+        return await res.json();
+    }
+
+    async function loadStats() {
+        const data = await fetchAPI(`${API}/stats`);
+        if (data) {
+            document.getElementById('stat-users').textContent = data.total_users;
+            document.getElementById('stat-gens').textContent = data.total_generations;
+            document.getElementById('stat-revenue').textContent = data.total_revenue;
+        }
+    }
+
+    async function loadUsers() {
+        const tbody = document.getElementById('user-list');
+        tbody.innerHTML = '<tr><td colspan="8" class="loading">加载中...</td></tr>';
+        
+        const data = await fetchAPI(`${API}/users`);
+        if (!data || !data.users) {
+            tbody.innerHTML = '<tr><td colspan="8" class="loading">加载失败</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = '';
+        data.users.forEach(u => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${u.id}</td>
+                <td><strong>${u.username}</strong></td>
+                <td style="color: var(--text-dim)">${u.email || '-'}</td>
+                <td><span class="tag ${u.role === 'admin' ? 'tag-admin' : 'tag-user'}">${u.role}</span></td>
+                <td><span class="tag ${u.plan_type === 'pro' ? 'tag-pro' : 'tag-free'}">${u.plan_type || 'free'}</span></td>
+                <td style="color: var(--success)">${u.daily_limit || 0}</td>
+                <td style="color: var(--text-dim)">${new Date(u.created_at).toLocaleDateString()}</td>
+                <td>
+                    <button class="btn btn-primary btn-sm" onclick="openQuotaModal(${u.id}, '${u.username}')">调整额度</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function openQuotaModal(id, name) {
+        document.getElementById('modal-user-id').value = id;
+        document.getElementById('modal-username').textContent = name;
+        document.getElementById('new-quota').value = '';
+        document.getElementById('quota-modal').style.display = 'flex';
+    }
+
+    function closeModal() {
+        document.getElementById('quota-modal').style.display = 'none';
+    }
+
+    async function saveQuota() {
+        const id = document.getElementById('modal-user-id').value;
+        const quota = document.getElementById('new-quota').value;
+        
+        if (!quota) return alert('请输入额度');
+
+        const res = await fetchAPI(`${API}/users/${id}/quota`, 'POST', { daily_limit: parseInt(quota) });
+        if (res && res.success) {
+            alert('额度调整成功');
+            closeModal();
+            loadUsers();
+        } else {
+            alert('操作失败: ' + (res ? res.error : '网络错误'));
+        }
+    }
+
+    async function loginAdmin() {
+        const username = prompt('管理员账号:');
+        if (!username) return;
+        const password = prompt('密码:');
+        
+        const res = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+        });
+        const data = await res.json();
+        
+        if (data.success && data.user.role === 'admin') {
+            token = data.token;
+            localStorage.setItem('ai_admin_token', token);
+            document.getElementById('admin-name').textContent = username;
+            loadStats();
+            loadUsers();
+        } else {
+            alert('登录失败或权限不足');
+        }
+    }
+
+    // Init
+    window.onload = () => {
+        if (token) {
+            loadStats();
+            loadUsers();
+        } else {
+            loginAdmin();
+        }
+    };
+</script>
+</body>
+</html>
