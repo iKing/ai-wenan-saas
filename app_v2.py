@@ -591,34 +591,70 @@ def stats():
     })
 
 # ==================== 支付模块 ====================
-from payment import create_payment, handle_payment_callback
+from payment import create_payment, handle_payment_callback, gateway as payment_gateway
 
 @app.route('/api/payment/wechat', methods=['POST'])
+@login_required
 def wechat_pay():
+    """创建微信支付订单"""
+    user_id = g.current_user['user_id']
     data = request.json
-    if not data:
-        return jsonify({"error": "Missing data"}), 400
-    result = create_payment(
-        user_id=data.get('user_id', 0), 
-        product=data.get('product', 'pro_monthly'), 
-        method='wechat'
-    )
+    product = data.get('product', 'pro_monthly')
+    result = create_payment(user_id, product, 'wechat')
     return jsonify({"success": True, "data": result})
 
 @app.route('/api/payment/alipay', methods=['POST'])
+@login_required
 def alipay_pay():
+    """创建支付宝订单"""
+    user_id = g.current_user['user_id']
     data = request.json
-    if not data:
-        return jsonify({"error": "Missing data"}), 400
-    result = create_payment(
-        user_id=data.get('user_id', 0), 
-        product=data.get('product', 'pro_monthly'), 
-        method='alipay'
-    )
+    product = data.get('product', 'pro_monthly')
+    result = create_payment(user_id, product, 'alipay')
     return jsonify({"success": True, "data": result})
+
+@app.route('/api/payment/status', methods=['GET'])
+@login_required
+def payment_status():
+    """查询订单状态 (供前端轮询)"""
+    order_no = request.args.get('order_no')
+    if not order_no:
+        return jsonify({"error": "Missing order_no"}), 400
+    
+    status = payment_gateway.check_order_status(order_no)
+    return jsonify(status)
+
+@app.route('/api/payment/history', methods=['GET'])
+@login_required
+def payment_history():
+    """用户订单历史"""
+    user_id = g.current_user['user_id']
+    orders = payment_gateway.get_user_orders(user_id)
+    return jsonify({"success": True, "orders": orders})
+
+@app.route('/api/payment/simulate', methods=['POST'])
+def payment_simulate():
+    """
+    [内部/测试接口] 模拟支付成功回调
+    真实场景下，这是由微信/支付宝服务器调用的 Notify URL
+    """
+    data = request.json
+    order_no = data.get('order_no')
+    if not order_no:
+        return jsonify({"error": "Missing order_no"}), 400
+        
+    success = handle_payment_callback({
+        "order_no": order_no,
+        "transaction_id": "MOCK_" + str(int(time.time()))
+    })
+    
+    if success:
+        return jsonify({"success": True, "message": "Payment simulated successfully"})
+    return jsonify({"success": False, "error": "Callback failed"}), 400
 
 @app.route('/api/payment/notify', methods=['POST'])
 def payment_notify():
+    """真实环境的 Webhook 回调接口"""
     data = request.json
     success = handle_payment_callback(data)
     return jsonify({"success": success})
