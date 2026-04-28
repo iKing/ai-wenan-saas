@@ -155,6 +155,17 @@ header { padding: 15px 30px; display: flex; justify-content: space-between; alig
     </div>
 </div>
 
+<!-- V3.2 History Card -->
+<div class="container" id="history-container" style="display: none;">
+    <div class="card">
+        <h2>📜 我的文案 <span style="font-size: 12px; color: var(--text-dim); font-weight: normal;">(历史记录)</span></h2>
+        <div id="history-list" style="min-height: 100px; padding: 10px; color: var(--text-dim);">加载中...</div>
+        <div style="text-align: center; margin-top: 15px;">
+            <button class="btn btn-outline btn-sm" id="load-more-btn" onclick="loadMoreHistory()" style="display: none;">加载更多</button>
+        </div>
+    </div>
+</div>
+
 <!-- Auth Modal -->
 <div class="modal-overlay" id="auth-modal">
     <div class="modal">
@@ -312,6 +323,109 @@ async function refreshProfile() {
             updateLimitDisplay();
         }
     } catch (e) { /* 静默失败，不影响主流程 */ }
+}
+
+// ==================== V3.2 History Logic ====================
+let historyPage = 1;
+let historyLoading = false;
+
+function updateUI(loggedIn) {
+    document.getElementById('guest-panel').style.display = loggedIn ? 'none' : 'block';
+    document.getElementById('user-panel').style.display = loggedIn ? 'flex' : 'none';
+    
+    // Show History card if logged in
+    const histContainer = document.getElementById('history-container');
+    if (histContainer) {
+        histContainer.style.display = loggedIn ? 'block' : 'none';
+        if (loggedIn && historyPage === 1) {
+            loadHistory(1); // Load first page
+        }
+    }
+
+    if (loggedIn && userInfo) {
+        document.getElementById('username-display').innerText = userInfo.username;
+        updateLimitDisplay();
+    }
+}
+
+async function loadHistory(page, append = false) {
+    if (historyLoading) return;
+    historyLoading = true;
+    const list = document.getElementById('history-list');
+    const loadMoreBtn = document.getElementById('load-more-btn');
+    
+    if (!append) {
+        list.innerHTML = '<div style="text-align:center; padding: 20px;">加载中...</div>';
+        loadMoreBtn.style.display = 'none';
+    } else {
+        loadMoreBtn.innerText = '加载中...';
+    }
+
+    try {
+        const res = await fetch(`/api/history?page=${page}&limit=10`, { 
+            headers: {'Authorization': `Bearer ${userToken}`} 
+        });
+        const data = await res.json();
+        
+        if (data.success && data.items.length > 0) {
+            if (!append) list.innerHTML = '';
+            
+            data.items.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'history-item';
+                div.style.cssText = 'border: 1px solid var(--border); padding: 12px; margin-bottom: 10px; border-radius: 8px; background: var(--bg); cursor: pointer; transition: 0.2s;';
+                div.onmouseover = () => div.style.borderColor = 'var(--primary)';
+                div.onmouseout = () => div.style.borderColor = 'var(--border)';
+                div.onclick = () => restoreHistory(item);
+                
+                div.innerHTML = `
+                    <div style="display:flex; justify-content:space-between; margin-bottom: 5px;">
+                        <strong style="color: var(--accent);">${item.title}</strong>
+                        <span style="font-size: 11px; color: var(--text-dim);">${item.created_at.replace('T', ' ').substring(0, 16)}</span>
+                    </div>
+                    <div style="font-size: 12px; color: var(--text-dim); margin-bottom: 5px;">
+                        场景: ${item.scene} | 模型: ${item.model || '-'}
+                    </div>
+                    <div style="font-size: 13px; color: var(--text); line-height: 1.4; max-height: 40px; overflow: hidden; text-overflow: ellipsis;">
+                        ${item.content_preview}
+                    </div>
+                `;
+                list.appendChild(div);
+            });
+
+            if (data.items.length >= 10) {
+                loadMoreBtn.style.display = 'inline-block';
+                loadMoreBtn.innerText = '加载更多';
+                historyPage = page + 1;
+            } else {
+                loadMoreBtn.style.display = 'none';
+            }
+        } else {
+            if (!append) list.innerHTML = '<div style="text-align:center; padding: 20px;">暂无历史记录</div>';
+            loadMoreBtn.style.display = 'none';
+        }
+    } catch (e) {
+        if (!append) list.innerHTML = '加载失败';
+    } finally {
+        historyLoading = false;
+    }
+}
+
+function loadMoreHistory() {
+    loadHistory(historyPage, true);
+}
+
+function restoreHistory(item) {
+    // Put content in main output area
+    document.getElementById('output').textContent = item.content_full;
+    document.getElementById('result-meta').style.display = 'flex';
+    document.getElementById('result-actions').style.display = 'flex';
+    document.getElementById('meta-time').innerText = '历史生成';
+    document.getElementById('meta-model').innerText = item.model || '';
+    
+    // Scroll to top
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    alert('文案已回填到上方，您可以直接复制！');
 }
 
 function logout() {

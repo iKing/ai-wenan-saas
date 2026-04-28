@@ -508,6 +508,42 @@ def generate():
     content = call_ai_model(prompt, model=model)
     elapsed = time.time() - start_time
     
+    # ==================== V3.2 历史记录保存 ====================
+    try:
+        user_id = None
+        
+        # 1. 优先从 g.current_user 获取 (如果使用了 login_required)
+        if hasattr(g, 'current_user') and g.current_user:
+            user_id = g.current_user['user_id']
+        else:
+            # 2. 否则尝试从 Header 解析 Token (匿名/试用用户可能带了 token)
+            auth_header = request.headers.get('Authorization', '')
+            if auth_header.startswith('Bearer '):
+                from auth import verify_token
+                payload = verify_token(auth_header[7:])
+                if payload:
+                    user_id = payload.get('user_id')
+
+        # 估算成本 (简单模型: 0.01元/千字)
+        cost = len(content) * 0.00001 if content else 0
+        
+        conn = get_db()
+        conn.execute('''
+            INSERT INTO generations (
+                user_id, topic, scene, style, content, model_used, 
+                prompt, status, cost_cny, token_count, ip_address
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            user_id, topic, scene, style, content or '', model,
+            prompt, 'success', cost, len(content or ''), request.remote_addr
+        ))
+        conn.commit()
+    except Exception as e:
+        print(f"Failed to save history: {e}")
+    finally:
+        if 'conn' in locals(): conn.close()
+    # ==========================================================
+
     response = jsonify({
         "success": True,
         "content": content,
@@ -658,6 +694,86 @@ def payment_notify():
     data = request.json
     success = handle_payment_callback(data)
     return jsonify({"success": success})
+
+# ==================== 历史记录模块 V3.2 ====================
+
+@app.route('/api/history', methods=['GET'])
+@login_required
+def get_history():
+    """获取当前用户的历史生成记录"""
+    user_id = g.current_user['user_id']
+    page = request.args.get('page', 1, type=int)
+    limit = request.args.get('limit', 20, type=int)
+    offset = (page - 1) * limit
+    
+    # 时间范围过滤 (可选)
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    
+    query = "SELECT id, topic as title, scene, model_used, content, cost_cny, created_at FROM generations WHERE user_id = ?"
+    params = [user_id]
+    
+    if start_date:
+        query += " AND created_at >= ?"
+        params.append(start_date)
+    if end_date:
+        query += " AND created_at <= ?"
+        params.append(end_date)
+        
+    query += " ORDER BY created_at DESC LIMIT ? OFFSET ?"
+    params.extend([limit, offset])
+    
+    # 查询总数
+    count_query = "SELECT count(*) as c FROM generations WHERE user_id = ?"
+    count_params = [user_id]
+    if start_date:
+        count_query += " AND created_at >= ?"
+        count_params.append(start_date)
+    if end_date:
+        count_query += " AND created_at <= ?"
+        count_params.append(end_date)
+
+    conn = get_db()
+    try:
+        rows = conn.execute(query, params).fetchall()
+        total = conn.execute(count_query, count_params).fetchone()['c']
+        
+        items = []
+        for r in rows:
+            items.append({
+                "id": r['id'],
+                "title": r['title'],
+                "scene": r['scene'],
+                "model": r['model_used'],
+                "content_preview": r['content'][:100] + "..." if len(r['content']) > 100 else r['content'],
+                "content_full": r['content'],
+                "cost": round(r['cost_cny'], 4),
+                "created_at": r['created_at']
+            })
+            
+        return jsonify({
+            "success": True,
+            "items": items,
+            "total": total,
+            "page": page,
+            "limit": limit
+        })
+    finally:
+        conn.close()
+
+@app.route('/api/history/<int:id>', methods=['DELETE'])
+@login_required
+def delete_history(id):
+    """删除历史记录"""
+    user_id = g.current_user['user_id']
+    conn = get_db()
+    try:
+        # Ensure user can only delete their own
+        conn.execute("DELETE FROM generations WHERE id = ? AND user_id = ?", (id, user_id))
+        conn.commit()
+        return jsonify({"success": True})
+    finally:
+        conn.close()
 
 # ==================== 管理后台 API ====================
 
