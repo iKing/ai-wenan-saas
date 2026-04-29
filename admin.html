@@ -223,7 +223,7 @@
         });
         const data = await res.json();
         
-        if (data.success && data.user.role === 'admin') {
+        if (data.success && data.role === 'admin') {
             token = data.token;
             localStorage.setItem('ai_admin_token', token);
             document.getElementById('admin-name').textContent = username;
