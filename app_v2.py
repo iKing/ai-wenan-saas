@@ -5,6 +5,7 @@ AI文案工坊 - 后端API服务 V2
 """
 
 from flask import Flask, request, jsonify, send_from_directory, g
+from flask_cors import CORS
 import os
 import json
 import time
@@ -1303,16 +1304,20 @@ def seed_drug_data():
 if __name__ == '__main__':
     init_db()
     
-    # 初始化认证模块（注册Blueprint、创建默认管理员）
+    # 启用 CORS（允许跨域请求）
+    CORS(app, resources={r"/api/*": {"origins": "*"}})
+    
+    # 初始化认证模块（注册 Blueprint、创建默认管理员）
     init_auth(app)
     
     # 注册使用量查询API路由
     register_rate_limit_routes(app)
     
     port = int(os.getenv('PORT', 5000))
-    print(f"🚀 AI文案工坊 V4.0 (医药顾问模式) 启动中...")
-    print(f"📍 地址: http://localhost:{port}")
-    print(f"🤖 AI模型: {Config.AI_MODEL}")
-    print(f"🔐 认证模块: 已加载")
-    print(f"⏱  使用量限制: 已加载")
-    app.run(host='0.0.0.0', port=port, debug=True)
+    print(f"🚀 AI 文案工坊 V5.0 (医药顾问模式) 启动中...")
+    print(f"📍 地址：http://localhost:{port}")
+    print(f"🤖 AI 模型：{Config.AI_MODEL}")
+    print(f"🔐 认证模块：已加载")
+    print(f"⏱  使用量限制：已加载")
+    # 关闭 debug 模式，使用稳定的 production 模式
+    app.run(host='0.0.0.0', port=port, debug=False, threaded=True)

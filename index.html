@@ -237,6 +237,8 @@ async function sendMsg() {
     try {
         const logEl = addThinking('正在接入分析引擎...');
         
+        console.log('[API] 开始请求 /api/vbp_chat');
+        
         const res = await fetch('/api/vbp_chat', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
@@ -245,7 +247,15 @@ async function sendMsg() {
                 user_input: text
             })
         });
+        
+        console.log('[API] 响应状态:', res.status);
+        
+        if (!res.ok) {
+            throw new Error(`HTTP 错误：${res.status}`);
+        }
+        
         const data = await res.json();
+        console.log('[API] 响应数据:', data);
         
         removeThinking(logEl);
         

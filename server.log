@@ -1,0 +1,37 @@
+✅ 已自动加载环境变量: /home/admin/.hermes/.env
+✅ 已加载 14 个敏感词拦截项
+✅ 已加载医药准入专家模板
+✅ 支付模块 (Orders) 已初始化
+[DB] 数据库初始化完成
+  管理员账户已存在，跳过
+  认证模块已初始化
+🚀 AI 文案工坊 V5.0 (医药顾问模式) 启动中...
+📍 地址：http://localhost:5000
+🤖 AI 模型：qwen
+🔐 认证模块：已加载
+⏱  使用量限制：已加载
+ * Serving Flask app 'app_v2' (lazy loading)
+ * Environment: production
+   WARNING: This is a development server. Do not use it in a production deployment.
+   Use a production WSGI server instead.
+ * Debug mode: off
+Traceback (most recent call last):
+  File "app_v2.py", line 1323, in <module>
+    app.run(host='0.0.0.0', port=port, debug=False, threaded=True)
+  File "/home/admin/ai-wenan-backend/venv/lib64/python3.6/site-packages/flask/app.py", line 920, in run
+    run_simple(t.cast(str, host), port, self, **options)
+  File "/home/admin/ai-wenan-backend/venv/lib64/python3.6/site-packages/werkzeug/serving.py", line 1017, in run_simple
+    inner()
+  File "/home/admin/ai-wenan-backend/venv/lib64/python3.6/site-packages/werkzeug/serving.py", line 966, in inner
+    fd=fd,
+  File "/home/admin/ai-wenan-backend/venv/lib64/python3.6/site-packages/werkzeug/serving.py", line 790, in make_server
+    host, port, app, request_handler, passthrough_errors, ssl_context, fd=fd
+  File "/home/admin/ai-wenan-backend/venv/lib64/python3.6/site-packages/werkzeug/serving.py", line 693, in __init__
+    super().__init__(server_address, handler)  # type: ignore
+  File "/usr/lib64/python3.6/socketserver.py", line 456, in __init__
+    self.server_bind()
+  File "/usr/lib64/python3.6/http/server.py", line 136, in server_bind
+    socketserver.TCPServer.server_bind(self)
+  File "/usr/lib64/python3.6/socketserver.py", line 470, in server_bind
+    self.socket.bind(self.server_address)
+OSError: [Errno 98] Address already in use
