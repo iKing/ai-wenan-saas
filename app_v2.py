@@ -935,8 +935,10 @@ VBP_RULES = """
 
 def run_vbp_agent_logic(session_data, user_input):
     """
-    核心逻辑：基于 LLM 的动态意图识别与数据提取
+    V5.0 核心逻辑：基于 LLM + 真实数据库的动态意图识别
     """
+    import requests
+    
     # 定义需要收集的字段
     REQUIRED_FIELDS = {
         "drug_name": "药品通用名",
@@ -945,42 +947,82 @@ def run_vbp_agent_logic(session_data, user_input):
         "target": "投标核心目标（保利润/保份额）"
     }
     
-    # 构建 Prompt，注入业务规则
+    # 【V5.0 新增】自动查库逻辑：当用户提到药品名时，立即查询真实挂网数据
+    db_context = ""
+    drug_name = session_data.get('drug_name', '')
+    
+    # 如果已有药品名，或当前输入包含药品名特征，尝试查库
+    if drug_name or any(kw in user_input for kw in ['胶囊', '片剂', '颗粒', '注射液']):
+        query_name = drug_name if drug_name else user_input
+        try:
+            # 调用本地数据库 API
+            res = requests.post('http://localhost:5000/api/v5/drug_price/query', 
+                               json={"drug_name": query_name}, timeout=3)
+            if res.status_code == 200:
+                data = res.json()
+                if data.get('success') and data.get('count', 0) > 0:
+                    records = data['data'][:5]  # 取前 5 条
+                    # 提取关键信息
+                    prices = [r['listing_price'] for r in records if r['listing_price']]
+                    min_price = min(prices) if prices else 0
+                    max_price = max(prices) if prices else 0
+                    avg_price = sum(prices)/len(prices) if prices else 0
+                    provinces = list(set([r['province'] for r in records]))
+                    
+                    db_context = f"""
+【📊 真实数据库查询结果】
+- 查询品种：{query_name}
+- 找到记录：{data['count']} 条
+- 价格区间：{min_price:.2f} 元 ~ {max_price:.2f} 元
+- 平均挂网价：{avg_price:.2f} 元
+- 覆盖省份：{', '.join(provinces[:5])}
+- 竞争提示：数据库中已有 {len(records)} 条有效报价记录
+"""
+                    # 自动填充 session_data
+                    if not session_data.get('current_price') and avg_price:
+                        session_data['current_price'] = f"{avg_price:.2f}"
+        except Exception as e:
+            print(f"[DB Query Error] {e}")
+            db_context = "【数据库查询失败，使用用户输入数据】"
+    
+    # 构建 Prompt，注入业务规则 + 真实数据
     prompt = f"""
-    你是一位拥有 20 年实战经验的中国医药集采策略专家。
-    你正在引导一位客户完成《集采投标策略报告》的咨询。
+你是一位拥有 20 年实战经验的中国医药集采策略专家。
+你正在引导一位客户完成《集采投标策略报告》的咨询。
 
-    【集采铁律 (必须遵守的底层逻辑)】
-    {VBP_RULES}
+【集采铁律 (必须遵守的底层逻辑)】
+{VBP_RULES}
 
-    【当前已知信息】
-    {json.dumps(session_data, ensure_ascii=False, indent=2)}
-    
-    【客户最新输入】
-    "{user_input}"
-    
-    【任务要求】
-    1. **信息提取**：提取 `drug_name`, `pass_count`, `current_price`, `target`。
-    2. **逻辑校验**：
-       - 如果用户输入了 `pass_count` 和 `target`，必须对比上述铁律。
-       - 例如：若 `pass_count` > 6 且 `target` 是 "保利润"，必须在 `tip` 中发出**红色预警**："竞争极其惨烈，保利润策略风险极高，极大概率出局！"
-    3. **下一步决策 (status)**：
-       - 4 个字段齐全 -> "REPORT"
-       - 缺 `drug_name` -> "ASK_drug_name"
-       - 缺 `pass_count` -> "ASK_pass_count"
-       - 缺 `current_price` -> "ASK_current_price"
-       - 缺 `target` -> "ASK_target"
-    4. **生成回复**：确认收到信息，提出下一个问题。语气干练、专业。
+{db_context}
 
-    【输出格式】
-    严格返回 JSON 格式：
-    {{
-      "updated_data": {{ "pass_count": 5, ... }},
-      "reply": "收到，过评数 5 家属于中等竞争...",
-      "tip": "逻辑依据：5 家过评通常面临 50%-70% 的降幅压力...",
-      "status": "当前状态代码"
-    }}
-    """
+【当前已知信息】
+{json.dumps(session_data, ensure_ascii=False, indent=2)}
+
+【客户最新输入】
+"{user_input}"
+
+【任务要求】
+1. **信息提取**：提取 `drug_name`, `pass_count`, `current_price`, `target`。
+2. **逻辑校验**：
+   - 如果用户输入了 `pass_count` 和 `target`，必须对比上述铁律。
+   - 例如：若 `pass_count` > 6 且 `target` 是 "保利润"，必须在 `tip` 中发出**红色预警**："竞争极其惨烈，保利润策略风险极高，极大概率出局！"
+3. **下一步决策 (status)**：
+   - 4 个字段齐全 -> "REPORT"
+   - 缺 `drug_name` -> "ASK_drug_name"
+   - 缺 `pass_count` -> "ASK_pass_count"
+   - 缺 `current_price` -> "ASK_current_price"
+   - 缺 `target` -> "ASK_target"
+4. **生成回复**：确认收到信息，提出下一个问题。语气干练、专业。**如果查到了真实数据，必须在回复中引用真实价格区间**。
+
+【输出格式】
+严格返回 JSON 格式：
+{{
+  "updated_data": {{ "pass_count": 5, ... }},
+  "reply": "收到，过评数 5 家属于中等竞争...",
+  "tip": "逻辑依据：5 家过评通常面临 50%-70% 的降幅压力...",
+  "status": "当前状态代码"
+}}
+"""
     
     try:
         ai_response = call_ai_model(prompt, model='deepseek')
@@ -1038,39 +1080,64 @@ def get_flowchart_by_status(status):
     style D fill:{colors[3]},stroke:#fff,stroke-width:2px"""
 
 def generate_vbp_report_v4(data):
-    """生成深度报告 (V4.3) - 基于铁律"""
+    """V5.0 生成深度报告 - 基于真实数据库 + 铁律"""
+    import requests
+    
     drug = data.get('drug_name', '未知')
     pass_count = data.get('pass_count', '未提供')
     price = data.get('current_price', '未提供')
     target = data.get('target', '未提供')
     
+    # 【V5.0 新增】生成报告前再次查库，确保数据最新
+    db_summary = ""
+    try:
+        res = requests.post('http://localhost:5000/api/v5/drug_price/query', 
+                           json={"drug_name": drug}, timeout=3)
+        if res.status_code == 200:
+            db_data = res.json()
+            if db_data.get('success') and db_data.get('count', 0) > 0:
+                records = db_data['data']
+                prices = [r['listing_price'] for r in records if r['listing_price']]
+                db_summary = f"""
+【真实数据支撑】
+- 数据库中共有 {db_data['count']} 条该品种挂网记录
+- 全国价格区间：{min(prices):.2f} 元 ~ {max(prices):.2f} 元
+- 建议报价参考：{min(prices)*0.8:.2f} 元 ~ {min(prices)*0.9:.2f} 元（通常集采降幅为挂网价的 10%-20%）
+"""
+    except:
+        db_summary = "【数据库查询超时，基于用户输入数据分析】"
+    
     prompt = f"""
-    作为集采专家，请基于以下核心数据和**内部铁律**生成最终决策报告：
-    - 品种：{drug}
-    - 竞争：过评数 {pass_count}
-    - 价格：{price} 元
-    - 目标：{target}
+作为集采专家，请基于以下核心数据和**真实数据库**生成最终决策报告：
+- 品种：{drug}
+- 竞争：过评数 {pass_count}
+- 价格：{price} 元
+- 目标：{target}
 
-    【内部铁律】
-    {VBP_RULES}
+{db_summary}
 
-    报告要求：
-    1. **包含 Mermaid 饼图**：分析原研与仿制的市场份额。
-    2. **竞争格局研判**：必须根据铁律判断当前烈度（如红海/蓝海），并结合铁律给出分析。
-    3. **报价方案表**：
-       - 如果 `pass_count` > 6，必须提示极高风险，建议贴近成本报价。
-       - 如果 `pass_count` <= 2，策略空间大。
-    4. 输出格式要专业、严谨。
-    """
+【内部铁律】
+{VBP_RULES}
+
+报告要求：
+1. **包含 Mermaid 饼图**：分析原研与仿制的市场份额。
+2. **竞争格局研判**：必须根据铁律判断当前烈度（如红海/蓝海），并结合铁律给出分析。
+3. **报价方案表**：
+   - 如果 `pass_count` > 6，必须提示极高风险，建议贴近成本报价。
+   - 如果 `pass_count` <= 2，策略空间大。
+4. **必须引用真实数据**：如果查到了数据库价格，必须在报告中明确写出"根据数据库，该品种全国挂网价区间为 XX-XX 元"。
+5. 输出格式要专业、严谨。
+"""
     
     content = call_ai_model(prompt, model='deepseek')
     return f"""
-### 📄 {drug} 集采投标策略决策报告 (V4.3)
+### 📄 {drug} 集采投标策略决策报告 (V5.0 数据增强版)
 
 {content}
 
 ---
 *生成时间：{datetime.now().strftime('%Y-%m-%d %H:%M')}*
+*数据来源：医药专业数据库 ({db_data.get('count', 0) if 'db_data' in locals() else 0} 条记录)*
     """
 
 @app.route('/api/vbp_chat', methods=['POST'])
