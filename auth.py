@@ -43,6 +43,132 @@ USERNAME_MIN_LENGTH = 2
 USERNAME_MAX_LENGTH = 30
 EMAIL_MAX_LENGTH = 120
 
+# ==================== 日志脱敏过滤器 ====================
+
+import logging
+
+class SensitiveDataFilter(logging.Filter):
+    """
+    日志脱敏过滤器
+    
+    脱敏规则：
+    - 手机号：138****1234
+    - 身份证：110101********1234
+    - 银行卡：6222****1234
+    - 邮箱：abc****@example.com
+    """
+    
+    @staticmethod
+    def mask_phone(match):
+        phone = match.group(0)
+        return phone[:3] + '****' + phone[-4:]
+    
+    @staticmethod
+    def mask_id_card(match):
+        """
+        身份证脱敏：110101********1234
+        格式：6 位地区 +8 位日期 +3 位顺序 +1 位校验
+        """
+        id_card = match.group(0)
+        # 严格 18 位身份证：前 6 位 + 中间 8 位脱敏 + 后 4 位
+        if len(id_card) == 18:
+            return id_card[:6] + '********' + id_card[-4:]
+        return id_card  # 非标准格式不脱敏
+    
+    @staticmethod
+    def mask_bank_card(match):
+        """
+        银行卡脱敏：6222****0123
+        格式：前 4 位 + 中间脱敏 + 后 4 位
+        """
+        bank_card = match.group(0)
+        # 16-19 位银行卡：前 4 位 + 中间脱敏 + 后 4 位
+        if len(bank_card) >= 16:
+            return bank_card[:4] + '****' + bank_card[-4:]
+        return bank_card  # 非标准格式不脱敏
+    
+    @staticmethod
+    def mask_email(match):
+        email = match.group(0)
+        parts = email.split('@')
+        if len(parts) == 2:
+            username = parts[0]
+            domain = parts[1]
+            if len(username) >= 3:
+                masked_username = username[:3] + '****'
+            else:
+                masked_username = username[0] + '***'
+            return masked_username + '@' + domain
+        return email
+    
+    def filter(self, record):
+        """脱敏日志消息"""
+        if hasattr(record, 'msg') and isinstance(record.msg, str):
+            # 脱敏顺序很重要！先脱敏特殊的，再脱敏通用的
+            # 1. 身份证脱敏（18 位，必须在银行卡之前，否则会被银行卡正则匹配）
+            record.msg = re.sub(
+                r'\d{17}[\dXx]',
+                self.mask_id_card,
+                record.msg
+            )
+            # 2. 手机号脱敏（11 位数字）
+            record.msg = re.sub(
+                r'1[3-9]\d{9}',
+                self.mask_phone,
+                record.msg
+            )
+            # 3. 银行卡脱敏（16-19 位数字）
+            record.msg = re.sub(
+                r'\b\d{16,19}\b',
+                self.mask_bank_card,
+                record.msg
+            )
+            # 4. 邮箱脱敏
+            record.msg = re.sub(
+                r'\b[\w.-]+@[\w.-]+\.\w+\b',
+                self.mask_email,
+                record.msg
+            )
+        
+        # 同样处理 args（如果有）
+        if hasattr(record, 'args') and record.args:
+            if isinstance(record.args, tuple):
+                record.args = tuple(
+                    self._mask_value(arg) for arg in record.args
+                )
+            elif isinstance(record.args, dict):
+                record.args = {
+                    k: self._mask_value(v) for k, v in record.args.items()
+                }
+        
+        return True
+    
+    def _mask_value(self, value):
+        """递归脱敏值"""
+        if isinstance(value, str):
+            # 应用所有脱敏规则
+            value = re.sub(r'1[3-9]\d{9}', self.mask_phone, value)
+            value = re.sub(r'\d{17}[\dXx]', self.mask_id_card, value)
+            value = re.sub(r'\b\d{16,19}\b', self.mask_bank_card, value)
+            value = re.sub(r'\b[\w.-]+@[\w.-]+\.\w+\b', self.mask_email, value)
+        return value
+
+
+# 配置全局日志脱敏
+def setup_sensitive_logging():
+    """为所有 logger 添加脱敏过滤器"""
+    sensitive_filter = SensitiveDataFilter()
+    
+    # 为根 logger 添加过滤器
+    logging.getLogger().addFilter(sensitive_filter)
+    
+    # 为 werkzeug（Flask 内置服务器）添加过滤器
+    logging.getLogger('werkzeug').addFilter(sensitive_filter)
+
+
+# 初始化脱敏日志
+setup_sensitive_logging()
+
 # ==================== 数据库辅助 ====================
 
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'wenyan.db')

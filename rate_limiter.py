@@ -31,8 +31,15 @@ DAILY_LIMIT_VIP = 100
 DAILY_LIMIT_ENTERPRISE = -1  # -1 表示无限制
 
 # 试用（未登录）限制
-TRIAL_DAILY_LIMIT = 3  # 每个IP每天最多3次
+TRIAL_DAILY_LIMIT = 3  # 每个 IP 每天最多 3 次
 TRIAL_MAX_TOPIC_LENGTH = 50  # 试用用户主题长度限制
+
+# IP 分钟级限流（防刷）
+IP_RATE_LIMIT = 60  # 单 IP 每分钟最多 60 次请求
+IP_RATE_WINDOW = 60  # 时间窗口（秒）
+
+# 内存缓存：{ip_address: [timestamp1, timestamp2, ...]}
+_ip_request_cache = {}
 
 
 # ==================== 数据库辅助 ====================
@@ -218,6 +225,46 @@ def get_client_ip():
     return request.remote_addr or 'unknown'
 
 
+def check_ip_rate_limit(ip_address):
+    """
+    检查 IP 分钟级限流（防刷）
+    
+    Args:
+        ip_address: 客户端 IP
+        
+    Returns:
+        tuple: (allowed, retry_after_seconds)
+            - allowed: 是否允许调用
+            - retry_after_seconds: 重试等待时间（秒），允许时为 0
+    """
+    import time
+    
+    current_time = time.time()
+    window_start = current_time - IP_RATE_WINDOW
+    
+    # 清理过期缓存
+    if ip_address in _ip_request_cache:
+        _ip_request_cache[ip_address] = [
+            ts for ts in _ip_request_cache[ip_address]
+            if ts > window_start
+        ]
+    else:
+        _ip_request_cache[ip_address] = []
+    
+    # 检查是否超限
+    request_count = len(_ip_request_cache[ip_address])
+    
+    if request_count >= IP_RATE_LIMIT:
+        # 计算最早请求的时间
+        oldest_request = min(_ip_request_cache[ip_address])
+        retry_after = int(oldest_request + IP_RATE_WINDOW - current_time) + 1
+        return (False, max(1, retry_after))
+    
+    # 记录当前请求
+    _ip_request_cache[ip_address].append(current_time)
+    return (True, 0)
+
+
 # ==================== 权限检查核心逻辑 ====================
 
 def check_rate_limit(user_id=None):
@@ -293,7 +340,23 @@ def rate_limit(f):
     """
     @functools.wraps(f)
     def decorated(*args, **kwargs):
-        # 尝试从认证header获取用户
+        # 获取客户端 IP
+        ip_address = get_client_ip()
+        
+        # 先检查 IP 分钟级限流（防刷）
+        ip_allowed, retry_after = check_ip_rate_limit(ip_address)
+        if not ip_allowed:
+            response = jsonify({
+                "success": False,
+                "error": "请求过于频繁，请稍后再试",
+                "code": "IP_RATE_LIMIT_EXCEEDED",
+                "retry_after": retry_after,
+            })
+            response.status_code = 429
+            response.headers['Retry-After'] = str(retry_after)
+            return response
+        
+        # 尝试从认证 header 获取用户
         user_id = _extract_user_id_from_request()
 
         allowed, message, limit, used, remaining = check_rate_limit(user_id)
