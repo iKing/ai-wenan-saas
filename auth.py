@@ -23,6 +23,9 @@ from datetime import datetime, timedelta
 from flask import Blueprint, request, jsonify, g
 from werkzeug.security import generate_password_hash, check_password_hash
 
+# 导入限流模块
+from rate_limiter import check_ip_rate_limit, get_client_ip
+
 try:
     import jwt
     PYJWT_AVAILABLE = True
@@ -31,11 +34,13 @@ except ImportError:
 
 # ==================== 配置 ====================
 
-# JWT密钥（生产环境应使用环境变量）
-JWT_SECRET = os.environ.get('JWT_SECRET', 'wenyan-v3-secret-key-change-in-production')
+# JWT 密钥（必须通过环境变量设置）
+JWT_SECRET = os.environ.get('JWT_SECRET')
+if not JWT_SECRET:
+    raise ValueError("JWT_SECRET environment variable must be set for production use")
 JWT_ALGORITHM = 'HS256'
-JWT_EXPIRE_HOURS = 24  # token有效期（小时）
-JWT_REFRESH_EXPIRE_DAYS = 30  # refresh token有效期（天）
+JWT_EXPIRE_HOURS = 24  # token 有效期（小时）
+JWT_REFRESH_EXPIRE_DAYS = 30  # refresh token 有效期（天）
 
 # 密码要求
 PASSWORD_MIN_LENGTH = 6
@@ -444,11 +449,20 @@ def register():
         "expires_in": 86400
     }
     """
+    # 获取客户端 IP 并检查限流（防刷）
+    client_ip = get_client_ip()
+    allowed, retry_after = check_ip_rate_limit(client_ip, max_requests=10, window=60)
+    if not allowed:
+        return jsonify({
+            "success": False,
+            "error": f"请求过于频繁，请{retry_after}秒后再试"
+        }), 429
+    
     data = request.get_json(silent=True)
     if not data:
         return jsonify({
             "success": False,
-            "error": "请求体必须是JSON格式"
+            "error": "请求体必须是 JSON 格式"
         }), 400
 
     username = data.get('username', '').strip()
@@ -574,11 +588,20 @@ def login():
         "expires_in": 86400
     }
     """
+    # 获取客户端 IP 并检查限流（防刷）
+    client_ip = get_client_ip()
+    allowed, retry_after = check_ip_rate_limit(client_ip, max_requests=10, window=60)
+    if not allowed:
+        return jsonify({
+            "success": False,
+            "error": f"请求过于频繁，请{retry_after}秒后再试"
+        }), 429
+    
     data = request.get_json(silent=True)
     if not data:
         return jsonify({
             "success": False,
-            "error": "请求体必须是JSON格式"
+            "error": "请求体必须是 JSON 格式"
         }), 400
 
     identifier = (data.get('username') or data.get('email') or '').strip()
@@ -898,6 +921,8 @@ def check_token():
 
 def create_default_admin():
     """创建默认管理员账户（仅在管理员不存在时）"""
+    import secrets
+    
     conn = get_db_direct()
     try:
         existing = conn.execute(
@@ -905,8 +930,10 @@ def create_default_admin():
         ).fetchone()
 
         if not existing:
+            # 生成随机管理员密码
+            admin_password = secrets.token_urlsafe(16)
             admin_hash = generate_password_hash(
-                'admin123', method='pbkdf2:sha256'
+                admin_password, method='pbkdf2:sha256'
             )
             conn.execute('''
                 INSERT INTO users (username, email, password_hash, role, created_at)
@@ -920,7 +947,12 @@ def create_default_admin():
             ''', (conn.execute("SELECT last_insert_rowid()").fetchone()[0],))
 
             conn.commit()
-            print("  默认管理员账户已创建: admin / admin123")
+            print("=" * 60)
+            print("⚠️  默认管理员账户已创建")
+            print(f"🔑 用户名：admin")
+            print(f"🔑 密码：{admin_password}")
+            print("⚠️  请立即修改密码！")
+            print("=" * 60)
         else:
             print("  管理员账户已存在，跳过")
     finally:

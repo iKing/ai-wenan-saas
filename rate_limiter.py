@@ -225,12 +225,14 @@ def get_client_ip():
     return request.remote_addr or 'unknown'
 
 
-def check_ip_rate_limit(ip_address):
+def check_ip_rate_limit(ip_address, max_requests=None, window=None):
     """
     检查 IP 分钟级限流（防刷）
     
     Args:
         ip_address: 客户端 IP
+        max_requests: 最大请求次数（默认使用全局配置 IP_RATE_LIMIT）
+        window: 时间窗口（秒）（默认使用全局配置 IP_RATE_WINDOW）
         
     Returns:
         tuple: (allowed, retry_after_seconds)
@@ -239,8 +241,14 @@ def check_ip_rate_limit(ip_address):
     """
     import time
     
+    # 使用自定义参数或全局配置
+    if max_requests is None:
+        max_requests = IP_RATE_LIMIT
+    if window is None:
+        window = IP_RATE_WINDOW
+    
     current_time = time.time()
-    window_start = current_time - IP_RATE_WINDOW
+    window_start = current_time - window
     
     # 清理过期缓存
     if ip_address in _ip_request_cache:
@@ -254,10 +262,10 @@ def check_ip_rate_limit(ip_address):
     # 检查是否超限
     request_count = len(_ip_request_cache[ip_address])
     
-    if request_count >= IP_RATE_LIMIT:
+    if request_count >= max_requests:
         # 计算最早请求的时间
         oldest_request = min(_ip_request_cache[ip_address])
-        retry_after = int(oldest_request + IP_RATE_WINDOW - current_time) + 1
+        retry_after = int(oldest_request + window - current_time) + 1
         return (False, max(1, retry_after))
     
     # 记录当前请求
