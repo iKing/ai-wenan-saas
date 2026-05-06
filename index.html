@@ -3,70 +3,111 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AI文案工坊 V3.0 - 企业版</title>
+<title>AI 医药顾问 V4.2 - 可视化版</title>
+<!-- Markdown 渲染 -->
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<!-- 图表可视化引擎 Mermaid -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({ startOnLoad: false, theme: 'dark' });</script>
 <style>
 :root {
   --bg: #0a0a0f; --card: #13131a; --primary: #6c5ce7;
   --accent: #00cec9; --text: #e8e8f0; --text-dim: #8888a0;
   --border: #2a2a3a; --success: #00b894; --warning: #fdcb6e; --danger: #ff7675;
+  --step-active: #6c5ce7; --step-done: #00b894; --step-wait: #3a3a4a;
 }
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+body { font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif; background: var(--bg); color: var(--text); height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
 .bg-gradient { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(ellipse at 20% 20%, rgba(108,92,231,0.15) 0%, transparent 50%), radial-gradient(ellipse at 80% 80%, rgba(0,206,201,0.1) 0%, transparent 50%); z-index: -1; }
 
-header { padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); background: rgba(10,10,15,0.9); backdrop-filter: blur(10px); position: sticky; top: 0; z-index: 50; }
-.logo { display: flex; align-items: center; gap: 10px; font-size: 20px; font-weight: 700; }
-.version-badge { background: var(--accent); color: #000; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 700; margin-left: 5px; }
-.user-panel { display: flex; align-items: center; gap: 15px; }
-.user-info { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--text-dim); }
-.user-info span { color: var(--text); font-weight: 600; }
-.limit-badge { background: var(--border); padding: 2px 8px; border-radius: 10px; font-size: 11px; }
-.limit-badge.low { background: var(--danger); color: #fff; }
+header { padding: 10px 30px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); background: rgba(10,10,15,0.95); z-index: 50; }
+.logo { font-size: 18px; font-weight: 700; color: var(--accent); }
 
-.btn { padding: 8px 16px; border-radius: 8px; border: none; cursor: pointer; font-weight: 600; font-size: 13px; transition: all 0.2s; }
-.btn-primary { background: var(--primary); color: #fff; }
-.btn-primary:hover { background: #5b4bd6; }
-.btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
-.btn-outline:hover { border-color: var(--primary); color: var(--primary); }
-.btn-danger { background: var(--danger); color: #fff; }
+/* V4.1 咨询流程导航 */
+.consultation-flow { display: flex; justify-content: space-between; padding: 15px 40px; background: rgba(0,0,0,0.4); border-bottom: 1px solid var(--border); }
+.step { display: flex; flex-direction: column; align-items: center; gap: 8px; width: 22%; position: relative; }
+.step-circle { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: var(--step-wait); color: var(--text-dim); border: 2px solid transparent; font-size: 14px; font-weight: bold; transition: all 0.3s; z-index: 2; }
+.step.active .step-circle { background: var(--primary); color: #fff; border-color: var(--accent); box-shadow: 0 0 15px rgba(108,92,231,0.5); transform: scale(1.1); }
+.step.done .step-circle { background: var(--success); color: #fff; border-color: var(--success); }
+.step-label { font-size: 13px; color: var(--text-dim); font-weight: 500; text-align: center; transition: color 0.3s; }
+.step.active .step-label { color: var(--text); }
+.step-desc { font-size: 10px; color: var(--text-dim); text-align: center; max-width: 150px; line-height: 1.3; margin-top: 2px; }
+/* 连线 */
+.step:not(:last-child)::after { content: ''; position: absolute; top: 16px; left: 55%; width: 90%; height: 2px; background: var(--step-wait); z-index: 1; transition: background 0.3s; }
+.step.done:not(:last-child)::after { background: var(--success); }
 
-.container { max-width: 800px; margin: 30px auto; padding: 0 20px; }
-.card { background: var(--card); border-radius: 16px; border: 1px solid var(--border); padding: 24px; margin-bottom: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
-.card h2 { font-size: 18px; margin-bottom: 20px; display: flex; align-items: center; gap: 8px; }
+.container { flex: 1; display: flex; overflow: hidden; }
 
-.form-group { margin-bottom: 15px; }
-.form-group label { display: block; font-size: 12px; color: var(--text-dim); margin-bottom: 6px; }
-.form-group input, .form-group select, .form-group textarea { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px; color: var(--text); font-size: 14px; outline: none; }
-.form-group textarea { height: 100px; resize: vertical; }
-.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+/* 左侧：对话区 */
+.chat-panel { width: 40%; border-right: 1px solid var(--border); display: flex; flex-direction: column; background: rgba(255,255,255,0.02); }
+.chat-header { padding: 15px; border-bottom: 1px solid var(--border); font-weight: 600; background: rgba(0,0,0,0.2); display: flex; align-items: center; gap: 10px; }
+.chat-messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 20px; }
 
-.output-area { background: var(--bg); border-radius: 8px; padding: 15px; min-height: 150px; max-height: 60vh; overflow-y: auto; 
-    white-space: pre-wrap; word-wrap: break-word; overflow-wrap: anywhere; line-height: 1.6; font-size: 14px; 
-    border: 1px solid var(--border); position: relative; width: 100%; box-sizing: border-box; overflow-x: hidden; }
-.output-area pre { margin: 0; white-space: pre-wrap !important; word-break: break-all !important; overflow-wrap: break-word !important; width: 100%; box-sizing: border-box; }
+.message { max-width: 90%; padding: 12px 15px; border-radius: 12px; line-height: 1.5; font-size: 14px; position: relative; }
+.msg-ai { background: var(--card); border: 1px solid var(--border); align-self: flex-start; }
+.msg-user { background: var(--primary); color: #fff; align-self: flex-end; border-bottom-right-radius: 2px; }
 
-/* Result Header & Actions */
-.result-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; font-size: 12px; color: var(--text-dim); flex-wrap: wrap; gap: 8px; }
-.result-header span { margin-right: 10px; }
-.result-header .tag { background: var(--border); padding: 2px 6px; border-radius: 4px; color: var(--accent); }
-.action-bar { display: flex; gap: 8px; margin-top: 10px; justify-content: flex-end; }
-.loading { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; border-radius: 8px; font-weight: bold; color: var(--accent); }
+.expert-tip { background: rgba(108,92,231,0.1); border-left: 3px solid var(--primary); padding: 8px 12px; margin-top: 8px; font-size: 12px; color: var(--text-dim); font-style: italic; border-radius: 0 4px 4px 0; }
 
-/* Modal */
-.modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 1000; }
-.modal-overlay.active { display: flex; }
-.modal { background: var(--card); padding: 30px; border-radius: 16px; width: 90%; max-width: 400px; border: 1px solid var(--border); }
-.modal h3 { font-size: 20px; margin-bottom: 20px; text-align: center; }
-.modal .error-msg { color: var(--danger); font-size: 12px; margin-top: 5px; display: none; }
-.modal-switch { text-align: center; margin-top: 15px; font-size: 13px; color: var(--text-dim); }
-.modal-switch a { color: var(--accent); cursor: pointer; text-decoration: underline; }
+.thinking-log { font-family: 'Consolas', monospace; font-size: 11px; color: var(--accent); padding: 5px 0; opacity: 0.8; }
 
-/* Payment Modal Specifics */
-.plan-option { border: 1px solid var(--border); border-radius: 8px; padding: 15px; margin-bottom: 10px; cursor: pointer; transition: 0.2s; display: flex; justify-content: space-between; align-items: center; }
-.plan-option:hover, .plan-option.selected { border-color: var(--primary); background: rgba(108,92,231,0.1); }
-.plan-name { font-weight: bold; font-size: 16px; }
-.plan-price { color: var(--success); font-weight: bold; font-size: 18px; }
-.plan-desc { font-size: 12px; color: var(--text-dim); margin-top: 5px; }
+.chat-input-area { padding: 15px; border-top: 1px solid var(--border); background: var(--card); display: flex; gap: 10px; }
+.chat-input { flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px; color: var(--text); outline: none; }
+.send-btn { padding: 0 20px; background: var(--accent); color: #000; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
+.send-btn:disabled { background: var(--step-wait); color: var(--text-dim); cursor: not-allowed; }
+
+/* 右侧：报告区 */
+.report-panel { width: 60%; display: flex; flex-direction: column; background: var(--bg); }
+.report-header { padding: 15px; border-bottom: 1px solid var(--border); font-weight: 600; background: rgba(0,0,0,0.2); display: flex; justify-content: space-between; }
+.report-content { flex: 1; padding: 30px; overflow-y: auto; }
+.report-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: var(--text-dim); text-align: center; }
+
+/* Markdown 样式增强 & 图表容器 */
+.report-content h3 { color: var(--accent); border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-top: 30px; }
+.report-content table { width: 100%; border-collapse: collapse; margin: 15px 0; font-size: 13px; }
+.report-content th, .report-content td { border: 1px solid var(--border); padding: 10px; text-align: left; }
+.report-content th { background: rgba(108,92,231,0.15); color: var(--accent); font-weight: 600; }
+.mermaid { background: rgba(255,255,255,0.03); border-radius: 8px; padding: 10px; margin: 15px 0; text-align: center; border: 1px solid var(--border); }
+#flow-chart-box { background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px; margin-bottom: 20px; min-height: 100px; display: flex; align-items: center; justify-content: center; }
+
+/* 按钮样式 */
+.action-btn { 
+    background: var(--card); 
+    border: 1px solid var(--border); 
+    color: var(--text); 
+    padding: 4px 10px; 
+    border-radius: 4px; 
+    font-size: 12px; 
+    cursor: pointer; 
+    transition: all 0.2s;
+}
+.action-btn:hover { background: var(--primary); border-color: var(--primary); }
+
+/* 打印样式：导出 PDF 专用 */
+@media print {
+    body { background: #fff !important; color: #000 !important; height: auto !important; overflow: visible !important; display: block !important; }
+    .bg-gradient, .chat-panel, .consultation-flow, .chat-input-area, header, .action-btn, #report-placeholder { display: none !important; }
+    .report-panel { width: 100% !important; background: #fff !important; display: block !important; }
+    .report-header { background: #fff !important; color: #000 !important; border-bottom: 2px solid #000 !important; padding: 20px 0 !important; }
+    .report-header span:first-child { font-size: 24px !important; color: #000 !important; }
+    .report-content { padding: 20px 0 !important; overflow: visible !important; color: #000 !important; }
+    .report-content h3 { color: #000 !important; border-bottom: 1px solid #000 !important; }
+    .report-content table { border: 1px solid #000 !important; }
+    .report-content th, .report-content td { border: 1px solid #000 !important; color: #000 !important; background: #fff !important; }
+    .report-content th { background: #eee !important; }
+    .mermaid { background: #fff !important; border: 1px solid #ccc !important; }
+    .expert-tip { display: none !important; } /* 打印时隐藏提示，只保留干货 */
+}
+
+/* 历史记录弹窗 */
+.modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+.modal-content { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; width: 500px; max-height: 70vh; display: flex; flex-direction: column; }
+.modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.modal-header h3 { color: var(--accent); }
+.close-btn { background: none; border: none; color: var(--text-dim); font-size: 20px; cursor: pointer; }
+.history-list { overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+.history-item { padding: 10px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 6px; cursor: pointer; display: flex; justify-content: space-between; }
+.history-item:hover { background: rgba(108,92,231,0.1); border-color: var(--primary); }
 </style>
 </head>
 <body>
@@ -74,560 +115,259 @@ header { padding: 15px 30px; display: flex; justify-content: space-between; alig
 <div class="bg-gradient"></div>
 
 <header>
-    <div class="logo">
-        <div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,var(--primary),var(--accent));display:flex;align-items:center;justify-content:center">🔥</div>
-        AI文案工坊
-        <span class="version-badge">V3.0.0</span>
-    </div>
-    <div class="user-panel">
-        <div id="guest-panel">
-            <button class="btn btn-primary" onclick="showModal()">登录 / 注册</button>
-        </div>
-        <div id="user-panel" style="display: none;">
-            <div class="user-info">
-                <span id="username-display">User</span>
-                <span class="limit-badge" id="limit-display">--/--</span>
-            </div>
-            <button class="btn btn-outline" style="border-color: var(--success); color: var(--success);" onclick="showPaymentModal()">💎 升级</button>
-            <button class="btn btn-outline" onclick="logout()">退出</button>
-        </div>
+    <div class="logo">🏥 AI 医药顾问 <span style="font-size: 12px; color: var(--text-dim); font-weight: normal;">| V4.2 可视化决策引擎</span></div>
+    <div>
+        <button class="btn" style="background: transparent; border: 1px solid var(--border); color: var(--text); padding: 5px 10px; border-radius: 6px; cursor: pointer;" onclick="location.reload()">重置咨询</button>
     </div>
 </header>
 
+<!-- 咨询流程导航 -->
+<div class="consultation-flow" id="flow-nav">
+    <div class="step active" data-step="1">
+        <div class="step-circle">1</div>
+        <div class="step-label">品种定位</div>
+        <div class="step-desc">确认原研/仿制、剂型、规格</div>
+    </div>
+    <div class="step" data-step="2">
+        <div class="step-circle">2</div>
+        <div class="step-label">竞品画像</div>
+        <div class="step-desc">获取过评数、历史中标情况</div>
+    </div>
+    <div class="step" data-step="3">
+        <div class="step-circle">3</div>
+        <div class="step-label">价格沙盘</div>
+        <div class="step-desc">录入挂网价、成本线</div>
+    </div>
+    <div class="step" data-step="4">
+        <div class="step-circle">4</div>
+        <div class="step-label">决策报告</div>
+        <div class="step-desc">生成三维策略方案</div>
+    </div>
+</div>
+
 <div class="container">
-    <div class="card">
-        <h2>✨ 智能文案生成</h2>
-        <div class="form-row">
-            <div class="form-group">
-                <label>文案场景</label>
-                <select id="scene">
-                    <option value="xiaohongshu">📕 小红书种草</option>
-                    <option value="gongzhonghao">📑 公众号文章</option>
-                    <option value="shipinhao">🎥 视频号脚本</option>
-                    <option value="pengyouquan">💬 朋友圈文案</option>
-                    <option value="dianping">⭐ 大众点评好评</option>
-                    <option value="zhihu">🎓 知乎回答</option>
-                    <option value="expert_access">💊 医药准入专家 (集采/医保)</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>AI 模型</label>
-                <select id="model">
-                    <option value="deepseek">🚀 DeepSeek V3 (通用最强)</option>
-                    <option value="token-plan-qwen">🧠 Qwen3.6-Plus (逻辑推理)</option>
-                    <option value="token-plan-glm">⚡ GLM-5 (智谱)</option>
-                    <option value="token-plan-minimax">🎤 MiniMax-M2.5 (极速)</option>
-                </select>
-            </div>
+    <div class="chat-panel">
+        <div class="chat-header">
+            <div style="width:8px;height:8px;border-radius:50%;background:var(--success);box-shadow:0 0 8px var(--success)"></div>
+            顾问在线 | 正在服务中
         </div>
-        <div class="form-group">
-            <label>主题 / 关键词</label>
-            <input type="text" id="topic" placeholder="例如：新品发布、年中大促、防脱发洗发水测评...">
+        <div class="chat-messages" id="chat-box">
+            <!-- 消息动态插入 -->
         </div>
-        <div class="form-group">
-            <label>补充要求 (可选)</label>
-            <textarea id="requirements" placeholder="例如：语气要活泼，多用 Emoji，强调性价比..."></textarea>
-        </div>
-        <button class="btn btn-primary" style="width: 100%; padding: 12px;" onclick="generate()" id="gen-btn">立即生成文案</button>
-    </div>
-
-    <div class="card">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-            <h2 style="margin: 0;">📝 生成结果</h2>
-            <!-- V2 功能回归：元数据 (耗时、模型) -->
-            <div id="result-meta" style="font-size: 12px; color: var(--text-dim); display: none;">
-                <span id="meta-time" style="margin-right: 8px;">⏱️ 0s</span>
-                <span id="meta-model">🤖 -</span>
-            </div>
-        </div>
-        
-        <div class="output-area" id="output">
-            <div style="color: var(--text-dim); text-align: center; margin-top: 40px;">
-                文案将在这里显示...
-            </div>
-        </div>
-
-        <!-- V2 功能回归：操作栏 -->
-        <div id="result-actions" style="display: none; margin-top: 10px; display: flex; gap: 10px; justify-content: flex-end;">
-            <button class="btn btn-outline" onclick="copyContent()" id="copy-btn">📋 一键复制</button>
-            <button class="btn btn-primary" onclick="regenerate()" id="regen-btn">🔄 重新生成</button>
+        <div class="chat-input-area">
+            <input type="text" id="chat-input" class="chat-input" placeholder="回复顾问的问题..." onkeypress="if(event.key==='Enter')sendMsg()">
+            <button class="send-btn" id="send-btn" onclick="sendMsg()">发送</button>
         </div>
     </div>
-</div>
 
-<!-- V3.2 History Card -->
-<div class="container" id="history-container" style="display: none;">
-    <div class="card">
-        <h2>📜 我的文案 <span style="font-size: 12px; color: var(--text-dim); font-weight: normal;">(历史记录)</span></h2>
-        <div id="history-list" style="min-height: 100px; padding: 10px; color: var(--text-dim);">加载中...</div>
-        <div style="text-align: center; margin-top: 15px;">
-            <button class="btn btn-outline btn-sm" id="load-more-btn" onclick="loadMoreHistory()" style="display: none;">加载更多</button>
-        </div>
-    </div>
-</div>
-
-<!-- Auth Modal -->
-<div class="modal-overlay" id="auth-modal">
-    <div class="modal">
-        <h3 id="modal-title">用户登录</h3>
-        <div class="form-group">
-            <label>用户名</label>
-            <input type="text" id="auth-user" placeholder="请输入用户名">
-        </div>
-        <div class="form-group" id="email-group" style="display: none;">
-            <label>邮箱 (注册需要)</label>
-            <input type="email" id="auth-email" placeholder="user@example.com">
-        </div>
-        <div class="form-group">
-            <label>密码</label>
-            <input type="password" id="auth-pass" placeholder="请输入密码">
-        </div>
-        <p class="error-msg" id="auth-error"></p>
-        <button class="btn btn-primary" style="width: 100%;" onclick="handleAuth()" id="auth-btn">登录</button>
-        <div class="modal-switch">
-            <span id="switch-text">还没有账号？</span> <a onclick="toggleAuthMode()">注册</a>
-        </div>
-        <div class="modal-switch" style="margin-top: 10px;"><a onclick="closeModal()">取消</a></div>
-    </div>
-</div>
-
-<!-- Payment Modal -->
-<div class="modal-overlay" id="payment-modal">
-    <div class="modal" style="max-width: 500px;">
-        <h3>💎 升级套餐</h3>
-        <div id="payment-step-1">
-            <div class="plan-option" onclick="selectPlan(this, 'pro_monthly', '9.9')">
-                <div>
-                    <div class="plan-name">Pro 月卡</div>
-                    <div class="plan-desc">每日 50 次额度 • 优先响应</div>
-                </div>
-                <div class="plan-price">¥9.9</div>
-            </div>
-            <div class="plan-option" onclick="selectPlan(this, 'pro_yearly', '79.0')">
-                <div>
-                    <div class="plan-name">Pro 年卡</div>
-                    <div class="plan-desc">每日 100 次额度 • 全年特惠</div>
-                </div>
-                <div class="plan-price">¥79.0</div>
-            </div>
-            
-            <div style="margin-top: 20px; text-align: right;">
-                <button class="btn btn-outline" onclick="closePaymentModal()">取消</button>
-                <button class="btn btn-primary" id="pay-btn" onclick="createOrder()" disabled>立即支付</button>
+    <div class="report-panel">
+        <div class="report-header">
+            <span>📊 决策分析面板</span>
+            <div style="display: flex; gap: 8px;">
+                <button class="action-btn" onclick="saveCurrentReport()">💾 存档</button>
+                <button class="action-btn" onclick="window.print()">🖨️ 导出 PDF</button>
+                <button class="action-btn" onclick="showHistory()">📚 历史</button>
             </div>
         </div>
-
-        <div id="payment-step-2" style="display: none; text-align: center;">
-            <p>订单已创建，请支付：</p>
-            <div style="background: white; padding: 10px; border-radius: 8px; margin: 15px 0; display: inline-block;">
-                <img id="qr-image" src="" alt="QR Code" style="width: 200px; height: 200px;">
+        <div class="report-content" id="report-box">
+            <div class="report-empty" id="report-placeholder">
+                <p style="font-size: 16px; margin-bottom: 10px;">📝 分析流程与报告</p>
+                <p style="font-size: 12px; max-width: 300px;">随着咨询推进，下方的流程图将实时变化，最终生成完整策略报告。</p>
             </div>
-            <p style="color: var(--text-dim); font-size: 12px;">订单号: <span id="order-no-display"></span></p>
-            
-            <hr style="border: 0; border-top: 1px solid var(--border); margin: 20px 0;">
-            <p style="font-size: 12px; color: var(--warning);">💡 模拟测试模式：</p>
-            <button class="btn btn-outline" style="border-color: var(--success); color: var(--success);" onclick="simulatePay()">🛠️ 模拟支付成功 (回调)</button>
         </div>
     </div>
 </div>
 
 <script>
-// State
-let isLoginMode = true;
-let userToken = localStorage.getItem('ai_token');
-let userInfo = null;
+let sessionToken = "sess-" + Math.random().toString(36).substr(2, 9);
+let isGenerating = false;
 
-// Init
 window.onload = () => {
-    if (userToken) checkUserStatus();
+    addMessage('ai', '您好，我是您的集采投标顾问。为了给您提供最具实操性的策略，我们需要先对品种进行精准定位。请告诉我您想分析的**药品通用名**是什么？（如：阿莫西林胶囊）', '第一步：品种定位。我们需要明确该品种的市场属性，这是制定所有策略的基石。');
 };
 
-// UI Functions
-function showModal() { document.getElementById('auth-modal').classList.add('active'); resetAuthForm(); }
-function closeModal() { document.getElementById('auth-modal').classList.remove('active'); }
-function toggleAuthMode() {
-    isLoginMode = !isLoginMode;
-    document.getElementById('modal-title').innerText = isLoginMode ? '用户登录' : '新用户注册';
-    document.getElementById('auth-btn').innerText = isLoginMode ? '登录' : '注册';
-    document.getElementById('email-group').style.display = isLoginMode ? 'none' : 'block';
-    document.getElementById('switch-text').innerText = isLoginMode ? '还没有账号？' : '已有账号？';
-    resetAuthForm();
-}
-function resetAuthForm() {
-    document.getElementById('auth-error').style.display = 'none';
-    document.querySelectorAll('.modal input').forEach(i => i.value = '');
-}
-
-// Auth Logic
-async function handleAuth() {
-    const u = document.getElementById('auth-user').value;
-    const p = document.getElementById('auth-pass').value;
-    const e = document.getElementById('auth-email').value;
-    const errBox = document.getElementById('auth-error');
-    
-    if (!u || !p) { showError('请填写用户名和密码'); return; }
-    if (!isLoginMode && !e) { showError('注册需要填写邮箱'); return; }
-
-    const endpoint = isLoginMode ? '/api/auth/login' : '/api/auth/register';
-    const body = isLoginMode ? { username: u, password: p } : { username: u, email: e, password: p };
-
-    try {
-        const res = await fetch(endpoint, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
-        const data = await res.json();
-        
-        if (data.success) {
-            userToken = data.token;
-            localStorage.setItem('ai_token', userToken);
-            closeModal();
-            checkUserStatus();
-        } else {
-            showError(data.error || '操作失败');
-        }
-    } catch (err) { showError('网络连接失败'); }
-}
-
-async function checkUserStatus() {
-    try {
-        const res = await fetch('/api/auth/profile', { headers: {'Authorization': `Bearer ${userToken}`} });
-        if (res.ok) {
-            const data = await res.json();
-            userInfo = {
-                username: data.user?.username || 'User',
-                role: data.user?.role || 'user',
-                today_usage: data.usage?.today_count || 0,
-                daily_limit: data.subscription?.daily_limit || 10,
-                plan_type: data.subscription?.plan_type || 'free',
-                remaining: data.usage?.remaining || 0
-            };
-            updateUI(true);
-        } else {
-            logout();
-        }
-    } catch (e) { logout(); }
-}
-
-// 生成成功后刷新额度
-async function refreshProfile() {
-    try {
-        const res = await fetch('/api/auth/profile', { headers: {'Authorization': `Bearer ${userToken}`} });
-        if (res.ok) {
-            const data = await res.json();
-            userInfo = {
-                username: data.user?.username || userInfo?.username || 'User',
-                role: data.user?.role || 'user',
-                today_usage: data.usage?.today_count || 0,
-                daily_limit: data.subscription?.daily_limit || 10,
-                plan_type: data.subscription?.plan_type || 'free',
-                remaining: data.usage?.remaining || 0
-            };
-            updateLimitDisplay();
-        }
-    } catch (e) { /* 静默失败，不影响主流程 */ }
-}
-
-// ==================== V3.2 History Logic ====================
-let historyPage = 1;
-let historyLoading = false;
-
-function updateUI(loggedIn) {
-    document.getElementById('guest-panel').style.display = loggedIn ? 'none' : 'block';
-    document.getElementById('user-panel').style.display = loggedIn ? 'flex' : 'none';
-    
-    // Show History card if logged in
-    const histContainer = document.getElementById('history-container');
-    if (histContainer) {
-        histContainer.style.display = loggedIn ? 'block' : 'none';
-        if (loggedIn && historyPage === 1) {
-            loadHistory(1); // Load first page
-        }
+function addMessage(role, text, tip = null) {
+    const box = document.getElementById('chat-box');
+    const div = document.createElement('div');
+    div.className = `message msg-${role}`;
+    let html = role === 'ai' ? marked.parse(text) : text;
+    if (tip) {
+        html += `<div class="expert-tip">💡 顾问依据：${tip}</div>`;
     }
-
-    if (loggedIn && userInfo) {
-        document.getElementById('username-display').innerText = userInfo.username;
-        updateLimitDisplay();
-    }
+    div.innerHTML = html;
+    box.appendChild(div);
+    box.scrollTop = box.scrollHeight;
 }
 
-async function loadHistory(page, append = false) {
-    if (historyLoading) return;
-    historyLoading = true;
-    const list = document.getElementById('history-list');
-    const loadMoreBtn = document.getElementById('load-more-btn');
-    
-    if (!append) {
-        list.innerHTML = '<div style="text-align:center; padding: 20px;">加载中...</div>';
-        loadMoreBtn.style.display = 'none';
-    } else {
-        loadMoreBtn.innerText = '加载中...';
-    }
-
-    try {
-        const res = await fetch(`/api/history?page=${page}&limit=10`, { 
-            headers: {'Authorization': `Bearer ${userToken}`} 
-        });
-        const data = await res.json();
-        
-        if (data.success && data.items.length > 0) {
-            if (!append) list.innerHTML = '';
-            
-            data.items.forEach(item => {
-                const div = document.createElement('div');
-                div.className = 'history-item';
-                div.style.cssText = 'border: 1px solid var(--border); padding: 12px; margin-bottom: 10px; border-radius: 8px; background: var(--bg); cursor: pointer; transition: 0.2s;';
-                div.onmouseover = () => div.style.borderColor = 'var(--primary)';
-                div.onmouseout = () => div.style.borderColor = 'var(--border)';
-                div.onclick = () => restoreHistory(item);
-                
-                div.innerHTML = `
-                    <div style="display:flex; justify-content:space-between; margin-bottom: 5px;">
-                        <strong style="color: var(--accent);">${item.title}</strong>
-                        <span style="font-size: 11px; color: var(--text-dim);">${item.created_at.replace('T', ' ').substring(0, 16)}</span>
-                    </div>
-                    <div style="font-size: 12px; color: var(--text-dim); margin-bottom: 5px;">
-                        场景: ${item.scene} | 模型: ${item.model || '-'}
-                    </div>
-                    <div style="font-size: 13px; color: var(--text); line-height: 1.4; max-height: 40px; overflow: hidden; text-overflow: ellipsis;">
-                        ${item.content_preview}
-                    </div>
-                `;
-                list.appendChild(div);
-            });
-
-            if (data.items.length >= 10) {
-                loadMoreBtn.style.display = 'inline-block';
-                loadMoreBtn.innerText = '加载更多';
-                historyPage = page + 1;
-            } else {
-                loadMoreBtn.style.display = 'none';
-            }
-        } else {
-            if (!append) list.innerHTML = '<div style="text-align:center; padding: 20px;">暂无历史记录</div>';
-            loadMoreBtn.style.display = 'none';
-        }
-    } catch (e) {
-        if (!append) list.innerHTML = '加载失败';
-    } finally {
-        historyLoading = false;
-    }
+function addThinking(text) {
+    const box = document.getElementById('chat-box');
+    const div = document.createElement('div');
+    div.className = 'thinking-log';
+    div.id = 'temp-log';
+    div.innerHTML = `> ${text}`;
+    box.appendChild(div);
+    box.scrollTop = box.scrollHeight;
+    return div;
 }
 
-function loadMoreHistory() {
-    loadHistory(historyPage, true);
+function removeThinking(el) {
+    if (el) el.remove();
 }
 
-function restoreHistory(item) {
-    // Put content in main output area
-    document.getElementById('output').textContent = item.content_full;
-    document.getElementById('result-meta').style.display = 'flex';
-    document.getElementById('result-actions').style.display = 'flex';
-    document.getElementById('meta-time').innerText = '历史生成';
-    document.getElementById('meta-model').innerText = item.model || '';
-    
-    // Scroll to top
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    alert('文案已回填到上方，您可以直接复制！');
-}
-
-function logout() {
-    userToken = null;
-    userInfo = null;
-    localStorage.removeItem('ai_token');
-    updateUI(false);
-}
-
-function updateUI(loggedIn) {
-    document.getElementById('guest-panel').style.display = loggedIn ? 'none' : 'block';
-    document.getElementById('user-panel').style.display = loggedIn ? 'flex' : 'none';
-    if (loggedIn && userInfo) {
-        document.getElementById('username-display').innerText = userInfo.username;
-        updateLimitDisplay();
-    }
-}
-
-function updateLimitDisplay() {
-    if (!userInfo) return;
-    const used = userInfo.today_usage || 0;
-    const limit = userInfo.daily_limit || 10;
-    const el = document.getElementById('limit-display');
-    el.innerText = `${used}/${limit}`;
-    if (used >= limit) {
-        el.classList.add('low');
-        el.innerText = '额度已用完';
-    }
-}
-
-// Core Generate Logic
-async function generate() {
-    // 1. 未登录拦截
-    if (!userToken) {
-        alert('请先登录后再生成，未登录无法使用！');
-        showModal();
-        return;
-    }
-
-    // 2. [新增] 额度用完拦截 - 绝不浪费 Token
-    if (userInfo && userInfo.remaining <= 0) {
-        alert(`今日额度已用完 (0/${userInfo.daily_limit})。请升级套餐获取更多额度，或明日再试！`);
-        return;
-    }
-
-    const topic = document.getElementById('topic').value;
-    if (!topic) { alert('请输入主题'); return; }
-
-    const btn = document.getElementById('gen-btn');
-    const output = document.getElementById('output');
-    
-    btn.disabled = true;
-    btn.innerText = '正在生成中...';
-    output.innerHTML = '<div class="loading">AI 正在思考中...</div>';
-
-    // 隐藏元数据和操作栏
-    document.getElementById('result-meta').style.display = 'none';
-    document.getElementById('result-actions').style.display = 'none';
-
-    // V2 功能回归：记录开始时间
-    const startTime = Date.now();
-
-    try {
-        const headers = { 'Content-Type': 'application/json' };
-        if (userToken) headers['Authorization'] = `Bearer ${userToken}`;
-
-        const res = await fetch('/api/generate', {
-            method: 'POST',
-            headers: headers,
-            body: JSON.stringify({
-                topic: topic,
-                scene: document.getElementById('scene').value,
-                model: document.getElementById('model').value,
-                requirements: document.getElementById('requirements').value
-            })
-        });
-
-        const data = await res.json();
-        
-        if (data.success) {
-            // 计算耗时
-            const duration = ((Date.now() - startTime) / 1000).toFixed(1);
-            
-            // V2 功能回归：更新显示元数据和操作栏
-            document.getElementById('meta-time').innerHTML = `⏱️ ${duration}s`;
-            document.getElementById('meta-model').innerHTML = `🤖 ${data.model || '-'}`;
-            document.getElementById('result-meta').style.display = 'flex';
-            document.getElementById('result-actions').style.display = 'flex';
-
-            // 渲染内容：使用 textContent 替代 pre 标签，避免不换行
-            output.innerHTML = '';
-            output.textContent = data.content;
-            
-            if (userToken) await refreshProfile();
-        } else {
-            output.textContent = data.error;
-        }
-    } catch (e) {
-        output.textContent = '生成失败，请检查网络';
-    } finally {
-        btn.disabled = false;
-        btn.innerText = '生成文案';
-    }
-}
-
-// V2 功能回归：一键复制
-function copyContent() {
-    const content = document.getElementById('output').textContent;
-    navigator.clipboard.writeText(content).then(() => {
-        const btn = document.getElementById('copy-btn');
-        const orig = btn.innerHTML;
-        btn.innerHTML = '✅ 已复制';
-        setTimeout(() => btn.innerHTML = orig, 2000);
+function updateFlow(stepNum) {
+    const steps = document.querySelectorAll('.step');
+    steps.forEach((s, idx) => {
+        const n = idx + 1;
+        s.classList.remove('active', 'done');
+        if (n < stepNum) s.classList.add('done');
+        if (n === stepNum) s.classList.add('active');
     });
 }
 
-// V2 功能回归：重新生成
-function regenerate() {
-    document.getElementById('gen-btn').click();
-}
+async function sendMsg() {
+    const input = document.getElementById('chat-input');
+    const text = input.value.trim();
+    if (!text || isGenerating) return;
 
-// Payment Logic
-let currentOrder = null;
-let selectedPlan = null;
-
-function showPaymentModal() { document.getElementById('payment-modal').classList.add('active'); }
-function closePaymentModal() { 
-    document.getElementById('payment-modal').classList.remove('active'); 
-    document.getElementById('payment-step-1').style.display = 'block';
-    document.getElementById('payment-step-2').style.display = 'none';
-    selectedPlan = null;
-}
-
-function selectPlan(el, planId, price) {
-    document.querySelectorAll('.plan-option').forEach(p => p.classList.remove('selected'));
-    el.classList.add('selected');
-    selectedPlan = { id: planId, price: price };
-    document.getElementById('pay-btn').disabled = false;
-    document.getElementById('pay-btn').innerText = `支付 ¥${price}`;
-}
-
-async function createOrder() {
-    if (!selectedPlan) return;
-    const btn = document.getElementById('pay-btn');
-    btn.innerText = '创建订单中...';
-    btn.disabled = true;
+    addMessage('user', text);
+    input.value = '';
+    isGenerating = true;
+    document.getElementById('send-btn').disabled = true;
 
     try {
-        const res = await fetch('/api/payment/wechat', {
+        const logEl = addThinking('正在接入分析引擎...');
+        
+        const res = await fetch('/api/vbp_chat', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${userToken}` },
-            body: JSON.stringify({ product: selectedPlan.id })
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                session_id: sessionToken,
+                user_input: text
+            })
         });
         const data = await res.json();
         
+        removeThinking(logEl);
+        
         if (data.success) {
-            currentOrder = data.data;
-            document.getElementById('payment-step-1').style.display = 'none';
-            document.getElementById('payment-step-2').style.display = 'block';
-            
-            if (currentOrder.qr_code) {
-                document.getElementById('qr-image').src = currentOrder.qr_code;
+            addMessage('ai', data.reply, data.tip);
+            updateFlow(data.step);
+            document.getElementById('report-status').innerText = data.status || '处理中...';
+            if (data.report) {
+                document.getElementById('report-placeholder').style.display = 'none';
+                const reportBox = document.getElementById('report-box');
+                // 保存数据到全局供存档使用
+                window.currentReportData = data.meta || {};
+                
+                // If flowchart exists, prepend it
+                if (data.flowchart) {
+                    reportBox.innerHTML = `<div id="flow-chart-box" class="mermaid">${data.flowchart}</div>` + marked.parse(data.report);
+                } else {
+                    reportBox.innerHTML = marked.parse(data.report);
+                }
+                document.getElementById('report-status').innerText = '✅ 报告已生成';
+                // 渲染可视化图表
+                try {
+                    await mermaid.run({ nodes: reportBox.querySelectorAll('.mermaid') });
+                } catch (e) { console.log("Mermaid render error", e); }
+            } else if (data.flowchart) {
+                 // Just update the flowchart if report is not ready yet
+                 document.getElementById('report-placeholder').style.display = 'none';
+                 let chartBox = document.getElementById('flow-chart-box');
+                 if (!chartBox) {
+                     chartBox = document.createElement('div');
+                     chartBox.id = 'flow-chart-box';
+                     chartBox.className = 'mermaid';
+                     document.getElementById('report-box').prepend(chartBox);
+                 }
+                 chartBox.innerHTML = data.flowchart;
+                 chartBox.removeAttribute('data-processed'); // reset mermaid
+                 try {
+                    await mermaid.run({ nodes: [chartBox] });
+                 } catch (e) { console.log("Mermaid render error", e); }
             }
-            document.getElementById('order-no-display').innerText = currentOrder.order_no;
         } else {
-            alert('创建订单失败');
+            addMessage('ai', '系统错误: ' + data.error);
         }
-    } catch (e) { alert('网络错误'); }
-    finally { btn.disabled = false; }
+    } catch (e) {
+        addMessage('ai', '网络连接失败，请重试。');
+    } finally {
+        isGenerating = false;
+        document.getElementById('send-btn').disabled = false;
+    }
 }
 
-async function simulatePay() {
-    if (!currentOrder) return;
-    const btn = document.querySelector('#payment-step-2 button');
-    btn.innerText = '处理回调中...';
-    btn.disabled = true;
-
+async function saveCurrentReport() {
+    const reportBox = document.getElementById('report-box');
+    const content = reportBox.innerText; // Get raw text for now, or use innerHTML
+    
+    // Get data from current state
+    const data = window.currentReportData || {};
+    const drugName = data.drug_name || "未命名";
+    
     try {
-        const res = await fetch('/api/payment/simulate', {
+        const res = await fetch('/api/reports/save', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ order_no: currentOrder.order_no })
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                content: reportBox.innerHTML,
+                drug_name: drugName,
+                meta: data
+            })
         });
-        const data = await res.json();
-        
-        if (data.success) {
-            alert('🎉 支付成功！权益已到账！');
-            closePaymentModal();
-            if (userToken) refreshProfile();
+        const result = await res.json();
+        if (result.success) {
+            alert("✅ 报告已存档！ID: " + result.id);
         } else {
-            alert('回调失败: ' + data.error);
+            alert("❌ 存档失败: " + result.error);
         }
-    } catch (e) { alert('网络错误'); }
-    finally { btn.disabled = false; }
+    } catch (e) {
+        alert("❌ 网络错误");
+    }
 }
 
-function showError(msg) {
-    const el = document.getElementById('auth-error');
-    el.innerText = msg;
-    el.style.display = 'block';
+function showHistory() {
+    fetch('/api/reports/list')
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                openHistoryModal(data.reports);
+            }
+        });
 }
+
+function openHistoryModal(reports) {
+    let listHtml = reports.map(r => `
+        <div class="history-item">
+            <div>
+                <b>${r.title}</b>
+                <div style="font-size: 11px; color: var(--text-dim); margin-top: 4px;">🎯 ${r.target || '通用'} | 📅 ${r.date}</div>
+            </div>
+        </div>
+    `).join('');
+    if (!reports.length) listHtml = '<p style="color: var(--text-dim); text-align: center;">暂无存档</p>';
+    
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>📚 历史报告存档</h3>
+                <button class="close-btn" onclick="this.closest('.modal-overlay').remove()">✕</button>
+            </div>
+            <div class="history-list">${listHtml}</div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+}
+
+// Capture report data when it's generated
+let originalFetch = window.fetch;
+window.addEventListener('DOMContentLoaded', () => {
+    const originalSend = sendMsg;
+    // We patch the report generation to store data
+});
 </script>
-
 </body>
 </html>

@@ -164,6 +164,50 @@ def init_db():
             UNIQUE(user_id, plan_type)
         );
 
+        -- V4.3 报告存档表
+        CREATE TABLE IF NOT EXISTS reports (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER DEFAULT 0,
+            drug_name TEXT,
+            pass_count TEXT,
+            current_price TEXT,
+            target TEXT,
+            content_markdown TEXT,
+            status TEXT DEFAULT 'draft',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        -- V5.0 医药专业数据库：挂网价格表
+        CREATE TABLE IF NOT EXISTS drug_prices (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            drug_code TEXT,
+            drug_name TEXT,
+            dosage_form TEXT,
+            manufacturer TEXT,
+            spec TEXT,
+            conversion_ratio REAL,
+            is_shortage_direct TEXT,
+            listing_price REAL,
+            province TEXT,
+            province_count INTEGER,
+            listing_date TEXT,
+            first_rise_flag TEXT,
+            first_rise_date TEXT,
+            follow_rise_flag TEXT,
+            follow_rise_date TEXT,
+            price_diff_flag TEXT,
+            color_warning TEXT,
+            risk_handling_date TEXT,
+            red_list_price REAL,
+            yellow_list_price REAL,
+            trading_status TEXT,
+            price_formation_mode TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_drug_name ON drug_prices(drug_name);
+        CREATE INDEX IF NOT EXISTS idx_province ON drug_prices(province);
+
+        -- 创建索引
         -- 创建索引
         CREATE INDEX IF NOT EXISTS idx_usage_user_date ON usage_logs(user_id, timestamp);
         CREATE INDEX IF NOT EXISTS idx_usage_model ON usage_logs(model);
@@ -360,6 +404,23 @@ def _call_openai_compatible(prompt, api_key, base_url, model_name):
     except Exception as e:
         return f"[模板模式] 调用异常: {str(e)}"
 
+# ==================== 敏感词过滤系统 ====================
+BANNED_WORDS = set()
+BANNED_FILE = os.path.join(os.path.dirname(__file__), 'banned_words.txt')
+if os.path.exists(BANNED_FILE):
+    with open(BANNED_FILE, 'r', encoding='utf-8') as f:
+        for line in f:
+            word = line.strip()
+            if word and not word.startswith('#'):
+                BANNED_WORDS.add(word)
+    print(f"✅ 已加载 {len(BANNED_WORDS)} 个敏感词拦截项")
+
+def check_sensitive_words(text):
+    """检查文本是否包含敏感词，返回命中的词列表"""
+    if not BANNED_WORDS: return []
+    found = [w for w in BANNED_WORDS if w in text]
+    return found
+
 # ==================== 提示词模板 ====================
 # 导入医药准入专家模板
 import sys
@@ -485,6 +546,12 @@ def generate():
     
     if len(topic) > 200:
         return jsonify({"error": "主题过长（最大200字）"}), 400
+    
+    # V3.3 敏感词拦截 (拦截用户输入 + 补充要求)
+    requirements = data.get('requirements', '')
+    blocked = check_sensitive_words(topic) + check_sensitive_words(requirements)
+    if blocked:
+        return jsonify({"error": f"输入包含违规/风险词汇: {', '.join(blocked)}，请修改后重试"}), 400
     
     scene = data.get('scene', 'xiaohongshu')
     style = data.get('style', '热情种草')
@@ -848,6 +915,323 @@ def admin_set_quota(user_id):
     finally:
         conn.close()
 
+# ==================== V4.3 医药顾问 Agent (智能决策引擎) ====================
+AGENT_SESSIONS = {}
+
+# 核心业务规则库：基于 20 年集采经验的量化逻辑
+VBP_RULES = """
+【集采竞争与降价铁律 (内部绝密)】
+1. **过评企业数 (N) 定义竞争烈度**:
+   - N ≤ 2 家：温和竞争。降幅通常控制在 20%-40%。策略空间大，可保利润。
+   - 3 ≤ N ≤ 6 家：中等竞争。降幅通常在 50%-70%。需精细测算，保量保利需取舍。
+   - N > 6 家：极度红海。降幅通常 > 80%，极易触发"价格熔断"（如降幅未达标则出局）。
+2. **熔断与淘汰机制**:
+   - 若报价高于"最高有效申报价"的一定比例（如 1.8 倍），直接淘汰。
+   - 若降幅未达到规定阈值（如 50%），可能无法获得拟中选资格。
+3. **企业策略建议**:
+   - 保份额（走量）：在红海中必须贴近成本线报价，甚至微亏换市场（清洗中小对手）。
+   - 保利润（高价）：仅在独家或 N≤2 的蓝海品种中可行。在红海中报高价等于自杀。
+"""
+
+def run_vbp_agent_logic(session_data, user_input):
+    """
+    核心逻辑：基于 LLM 的动态意图识别与数据提取
+    """
+    # 定义需要收集的字段
+    REQUIRED_FIELDS = {
+        "drug_name": "药品通用名",
+        "pass_count": "过评企业数量",
+        "current_price": "省级挂网价",
+        "target": "投标核心目标（保利润/保份额）"
+    }
+    
+    # 构建 Prompt，注入业务规则
+    prompt = f"""
+    你是一位拥有 20 年实战经验的中国医药集采策略专家。
+    你正在引导一位客户完成《集采投标策略报告》的咨询。
+
+    【集采铁律 (必须遵守的底层逻辑)】
+    {VBP_RULES}
+
+    【当前已知信息】
+    {json.dumps(session_data, ensure_ascii=False, indent=2)}
+    
+    【客户最新输入】
+    "{user_input}"
+    
+    【任务要求】
+    1. **信息提取**：提取 `drug_name`, `pass_count`, `current_price`, `target`。
+    2. **逻辑校验**：
+       - 如果用户输入了 `pass_count` 和 `target`，必须对比上述铁律。
+       - 例如：若 `pass_count` > 6 且 `target` 是 "保利润"，必须在 `tip` 中发出**红色预警**："竞争极其惨烈，保利润策略风险极高，极大概率出局！"
+    3. **下一步决策 (status)**：
+       - 4 个字段齐全 -> "REPORT"
+       - 缺 `drug_name` -> "ASK_drug_name"
+       - 缺 `pass_count` -> "ASK_pass_count"
+       - 缺 `current_price` -> "ASK_current_price"
+       - 缺 `target` -> "ASK_target"
+    4. **生成回复**：确认收到信息，提出下一个问题。语气干练、专业。
+
+    【输出格式】
+    严格返回 JSON 格式：
+    {{
+      "updated_data": {{ "pass_count": 5, ... }},
+      "reply": "收到，过评数 5 家属于中等竞争...",
+      "tip": "逻辑依据：5 家过评通常面临 50%-70% 的降幅压力...",
+      "status": "当前状态代码"
+    }}
+    """
+    
+    try:
+        ai_response = call_ai_model(prompt, model='deepseek')
+        
+        import re
+        match = re.search(r'```json\s*(.*?)\s*```', ai_response, re.DOTALL)
+        if not match:
+            match = re.search(r'(\{.*\})', ai_response, re.DOTALL)
+            
+        if match:
+            result = json.loads(match.group(1))
+            new_data = result.get('updated_data', {})
+            for k, v in new_data.items():
+                if v and v != "null" and v != "":
+                    session_data[k] = v
+            return result
+        else:
+            raise ValueError("AI 未返回 JSON")
+    except Exception as e:
+        print(f"[Agent Error] {e}")
+        return {
+            "updated_data": {},
+            "reply": "收到，请继续。",
+            "tip": "系统正在处理中...",
+            "status": "CONTINUE"
+        }
+
+def get_flowchart_by_status(status):
+    """根据状态动态生成流程图 Mermaid 代码"""
+    c1 = "#00b894" # done
+    c2 = "#6c5ce7" # active
+    c3 = "#3a3a4a" # wait
+    
+    # 默认全灰
+    colors = [c3, c3, c3, c3]
+    
+    if "ASK_pass_count" in status:
+        colors = [c1, c2, c3, c3] # 信息收集 done, 竞品分析 active
+    elif "ASK_current_price" in status:
+        colors = [c1, c1, c2, c3] # 信息+竞品 done, 价格沙盘 active
+    elif "ASK_target" in status:
+        colors = [c1, c1, c2, c3] # 价格 active
+    elif "REPORT" in status:
+        colors = [c1, c1, c1, c2] # 全 done, 报告 active
+    elif "ASK_drug_name" in status:
+        colors = [c2, c3, c3, c3] # 只有信息收集 active
+    
+    return f"""graph LR
+    A[品种定位] --> B[竞品画像]
+    B --> C[价格沙盘]
+    C --> D[决策报告]
+    style A fill:{colors[0]},stroke:#fff,stroke-width:2px
+    style B fill:{colors[1]},stroke:#fff,stroke-width:2px
+    style C fill:{colors[2]},stroke:#fff,stroke-width:2px
+    style D fill:{colors[3]},stroke:#fff,stroke-width:2px"""
+
+def generate_vbp_report_v4(data):
+    """生成深度报告 (V4.3) - 基于铁律"""
+    drug = data.get('drug_name', '未知')
+    pass_count = data.get('pass_count', '未提供')
+    price = data.get('current_price', '未提供')
+    target = data.get('target', '未提供')
+    
+    prompt = f"""
+    作为集采专家，请基于以下核心数据和**内部铁律**生成最终决策报告：
+    - 品种：{drug}
+    - 竞争：过评数 {pass_count}
+    - 价格：{price} 元
+    - 目标：{target}
+
+    【内部铁律】
+    {VBP_RULES}
+
+    报告要求：
+    1. **包含 Mermaid 饼图**：分析原研与仿制的市场份额。
+    2. **竞争格局研判**：必须根据铁律判断当前烈度（如红海/蓝海），并结合铁律给出分析。
+    3. **报价方案表**：
+       - 如果 `pass_count` > 6，必须提示极高风险，建议贴近成本报价。
+       - 如果 `pass_count` <= 2，策略空间大。
+    4. 输出格式要专业、严谨。
+    """
+    
+    content = call_ai_model(prompt, model='deepseek')
+    return f"""
+### 📄 {drug} 集采投标策略决策报告 (V4.3)
+
+{content}
+
+---
+*生成时间：{datetime.now().strftime('%Y-%m-%d %H:%M')}*
+    """
+
+@app.route('/api/vbp_chat', methods=['POST'])
+def vbp_chat():
+    """V4.3 智能对话接口"""
+    data = request.json
+    session_id = data.get('session_id', 'default')
+    user_input = data.get('user_input', '')
+    
+    if session_id not in AGENT_SESSIONS:
+        AGENT_SESSIONS[session_id] = {"data": {}}
+    
+    session = AGENT_SESSIONS[session_id]
+    
+    # 1. 运行 Agent 逻辑 (意图识别 + 数据提取 + 回复生成)
+    result = run_vbp_agent_logic(session['data'], user_input)
+    
+    status = result.get('status', 'CONTINUE')
+    reply = result.get('reply', '收到。')
+    tip = result.get('tip', '')
+    
+    # 2. 处理报告生成
+    report_content = None
+    if status == 'REPORT':
+        report_content = generate_vbp_report_v4(session['data'])
+        reply += "\n\n**报告已生成，请查看右侧面板。**"
+        tip = "所有关键信息已收集完毕，系统正在生成深度决策建议。"
+    
+    return jsonify({
+        "success": True,
+        "reply": reply,
+        "tip": tip,
+        "report": report_content,
+        "flowchart": get_flowchart_by_status(status),
+        "status_text": "报告生成中" if status == 'REPORT' else "分析中..."
+    })
+
+# ==================== V4.3 报告存档与导出 ====================
+@app.route('/api/reports/save', methods=['POST'])
+def save_report():
+    """保存生成的报告到数据库"""
+    data = request.json
+    report_content = data.get('content')
+    drug_name = data.get('drug_name', '未知')
+    meta = data.get('meta', {})
+    
+    if not report_content:
+        return jsonify({"error": "报告内容为空"}), 400
+
+    try:
+        conn = get_db()
+        cursor = conn.execute('''
+            INSERT INTO reports (drug_name, pass_count, current_price, target, content_markdown)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (
+            drug_name, 
+            meta.get('pass_count'), 
+            meta.get('current_price'), 
+            meta.get('target'),
+            report_content
+        ))
+        report_id = cursor.lastrowid
+        conn.commit()
+        conn.close()
+        return jsonify({"success": True, "id": report_id, "message": "报告已存档"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/reports/list', methods=['GET'])
+def list_reports():
+    """获取报告历史列表"""
+    try:
+        conn = get_db()
+        rows = conn.execute('SELECT id, drug_name, target, created_at FROM reports ORDER BY created_at DESC').fetchall()
+        conn.close()
+        
+        reports = []
+        for r in rows:
+            reports.append({
+                "id": r['id'],
+                "title": f"{r['drug_name']} 集采决策报告",
+                "target": r['target'],
+                "date": r['created_at']
+            })
+        return jsonify({"success": True, "reports": reports})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# ==================== V5.0 医药专业数据库 API ====================
+@app.route('/api/v5/drug_price/query', methods=['POST'])
+def query_drug_price():
+    """V5.0 核心接口：查询真实挂网价格数据"""
+    data = request.json
+    drug_name = data.get('drug_name')
+    province = data.get('province')
+    
+    if not drug_name:
+        return jsonify({"error": "请提供药品名称"}), 400
+
+    try:
+        conn = get_db()
+        query = "SELECT * FROM drug_prices WHERE drug_name LIKE ?"
+        params = [f"%{drug_name}%"]
+        
+        if province:
+            query += " AND province = ?"
+            params.append(province)
+            
+        query += " ORDER BY listing_price ASC"
+        
+        rows = conn.execute(query, params).fetchall()
+        conn.close()
+        
+        results = []
+        for r in rows:
+            results.append({
+                "drug_name": r['drug_name'],
+                "dosage_form": r['dosage_form'],
+                "manufacturer": r['manufacturer'],
+                "spec": r['spec'],
+                "listing_price": r['listing_price'],
+                "province": r['province'],
+                "price_diff_flag": r['price_diff_flag'],
+                "color_warning": r['color_warning'],
+                "trading_status": r['trading_status'],
+                "listing_date": r['listing_date']
+            })
+            
+        return jsonify({"success": True, "data": results, "count": len(results)})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/v5/drug_price/seed', methods=['POST'])
+def seed_drug_data():
+    """测试接口：注入模拟数据，验证功能"""
+    mock_data = [
+        ("8697000100001", "阿莫西林胶囊", "胶囊剂", "白云山制药", "0.25g*24s", 1.0, "否", 5.50, "江苏省", 28, "2024-10-01", "是", "2024-09-01", "否", None, "↑", "黄色", "2024-10-05", 8.00, 6.50, "活跃区", "1.国家集采"),
+        ("8697000100001", "阿莫西林胶囊", "胶囊剂", "白云山制药", "0.25g*24s", 1.0, "否", 4.80, "浙江省", 28, "2024-10-15", "否", None, "是", "2024-10-10", "↑↑", "红色", "2024-10-16", 8.00, 6.50, "活跃区", "5.普通挂网"),
+        ("8697000200002", "阿托伐他汀钙片", "片剂", "辉瑞制药", "20mg*7s", 1.0, "否", 12.50, "广东省", 15, "2023-05-20", "否", None, "否", None, "-", "绿色", None, 15.00, 13.50, "不活跃区", "4.国谈")
+    ]
+    
+    try:
+        conn = get_db()
+        # 先清空旧测试数据
+        conn.execute("DELETE FROM drug_prices WHERE drug_name IN ('阿莫西林胶囊', '阿托伐他汀钙片')")
+        
+        conn.executemany('''
+            INSERT INTO drug_prices (drug_code, drug_name, dosage_form, manufacturer, spec, conversion_ratio, 
+                                     is_shortage_direct, listing_price, province, province_count, listing_date, 
+                                     first_rise_flag, first_rise_date, follow_rise_flag, follow_rise_date, 
+                                     price_diff_flag, color_warning, risk_handling_date, red_list_price, 
+                                     yellow_list_price, trading_status, price_formation_mode)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', mock_data)
+        
+        conn.commit()
+        conn.close()
+        return jsonify({"success": True, "message": f"已注入 {len(mock_data)} 条测试数据"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 # ==================== 启动 ====================
 if __name__ == '__main__':
     init_db()
@@ -859,7 +1243,7 @@ if __name__ == '__main__':
     register_rate_limit_routes(app)
     
     port = int(os.getenv('PORT', 5000))
-    print(f"🚀 AI文案工坊 V3.0 启动中...")
+    print(f"🚀 AI文案工坊 V4.0 (医药顾问模式) 启动中...")
     print(f"📍 地址: http://localhost:{port}")
     print(f"🤖 AI模型: {Config.AI_MODEL}")
     print(f"🔐 认证模块: 已加载")
